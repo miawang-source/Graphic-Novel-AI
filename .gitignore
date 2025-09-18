@@ -1,0 +1,71 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Testing
+coverage/
+.nyc_output
+
+# Development and test files
+test-*
+check-*
+cleanup-*
+simple-test.txt
+test-*.txt
+test-*.md
+test-*.html
+tunnel*
+start-tunnel*
+
+# Database scripts (keep in scripts/ directory)
+*.sql
+!scripts/*.sql
+
+# Temporary files
+tmp/
+temp/
