@@ -826,6 +826,8 @@ function ScriptAnalysisSection({
 }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [fileProcessingStatus, setFileProcessingStatus] = useState<"idle" | "processing" | "completed" | "error">("idle")
+  const [fileProcessingError, setFileProcessingError] = useState<string>("")
   const [editingCharacter, setEditingCharacter] = useState<number | null>(null)
   const [editingScene, setEditingScene] = useState<number | null>(null)
   const [editingDescription, setEditingDescription] = useState("")
@@ -867,10 +869,24 @@ function ScriptAnalysisSection({
     }
   }, [])
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
+      // 重置之前的状态
       setUploadedFile(file)
+      setFileProcessingStatus("processing")
+      setFileProcessingError("")
+      setAnalysisResult(null) // 清除之前的分析结果
+
+      try {
+        // 验证文件并进行预处理
+        await processUploadedFile(file)
+        setFileProcessingStatus("completed")
+      } catch (error) {
+        console.error("File processing error:", error)
+        setFileProcessingStatus("error")
+        setFileProcessingError(error instanceof Error ? error.message : "文件处理失败")
+      }
     }
   }
 
@@ -878,7 +894,7 @@ function ScriptAnalysisSection({
     event.preventDefault()
   }
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     const files = event.dataTransfer.files
     if (files.length > 0) {
@@ -890,16 +906,56 @@ function ScriptAnalysisSection({
         fileName.endsWith(".txt") ||
         fileName.endsWith(".docx")
       ) {
+        // 重置之前的状态
         setUploadedFile(file)
+        setFileProcessingStatus("processing")
+        setFileProcessingError("")
+        setAnalysisResult(null) // 清除之前的分析结果
+
         console.log("[DEBUG] 文件拖拽成功:", {
           name: file.name,
           type: file.type,
           size: file.size
         })
+
+        try {
+          await processUploadedFile(file)
+          setFileProcessingStatus("completed")
+        } catch (error) {
+          console.error("File processing error:", error)
+          setFileProcessingStatus("error")
+          setFileProcessingError(error instanceof Error ? error.message : "文件处理失败")
+        }
       } else {
         alert(`不支持的文件格式：${fileName.split('.').pop()?.toUpperCase()}\n\n支持的格式：\n• .txt (纯文本)\n• .docx (Word文档)`)
       }
     }
+  }
+
+  // 文件预处理函数
+  const processUploadedFile = async (file: File) => {
+    const fileName = file.name.toLowerCase()
+
+    if (fileName.endsWith('.docx')) {
+      // DOCX文件验证 - 只做基本检查，实际解析在分析时进行
+      if (file.size > 50 * 1024 * 1024) { // 50MB限制
+        throw new Error('DOCX文件过大，请选择小于50MB的文件')
+      }
+    } else if (fileName.endsWith('.txt') || file.type === "text/plain") {
+      // TXT文件预读取验证
+      const content = await file.text()
+      if (!content.trim()) {
+        throw new Error("文本文件内容为空")
+      }
+      if (content.length > 1000000) { // 1MB文本限制
+        throw new Error('文本文件过大，请选择小于1MB的文件')
+      }
+    } else {
+      throw new Error(`不支持的文件格式：${fileName.split('.').pop()?.toUpperCase()}。请上传 .txt（纯文本）或 .docx（Word文档）格式的文件。`)
+    }
+
+    // 模拟处理延迟，让用户看到处理状态
+    await new Promise(resolve => setTimeout(resolve, 500))
   }
 
   const handleAnalyze = async () => {
@@ -909,6 +965,21 @@ function ScriptAnalysisSection({
     if (inputMethod === "file") {
       if (!uploadedFile) {
         alert("请先选择文件")
+        return
+      }
+
+      if (fileProcessingStatus === "processing") {
+        alert("文件正在处理中，请稍候...")
+        return
+      }
+
+      if (fileProcessingStatus === "error") {
+        alert(`文件处理失败：${fileProcessingError}`)
+        return
+      }
+
+      if (fileProcessingStatus !== "completed") {
+        alert("请等待文件处理完成")
         return
       }
 
@@ -1249,7 +1320,38 @@ function ScriptAnalysisSection({
                 <Button onClick={() => document.getElementById("file-upload")?.click()} className="cursor-pointer">
                   选择文件
                 </Button>
-                {uploadedFile && <div className="text-sm text-muted-foreground">已选择: {uploadedFile.name}</div>}
+                {uploadedFile && (
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <span>已选择: {uploadedFile.name}</span>
+                    {fileProcessingStatus === "processing" && (
+                      <div className="flex items-center gap-1 text-blue-600">
+                        <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-xs">处理中...</span>
+                      </div>
+                    )}
+                    {fileProcessingStatus === "completed" && (
+                      <div className="flex items-center gap-1 text-green-600">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-xs">已就绪</span>
+                      </div>
+                    )}
+                    {fileProcessingStatus === "error" && (
+                      <div className="flex items-center gap-1 text-red-600">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-xs">处理失败</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {fileProcessingStatus === "error" && fileProcessingError && (
+                  <div className="text-xs text-red-600 mt-1">
+                    错误: {fileProcessingError}
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -1280,9 +1382,23 @@ function ScriptAnalysisSection({
           )}
 
           {((inputMethod === "file" && uploadedFile) || (inputMethod === "text" && textContent.trim() && scriptTitle.trim())) && (
-            <div className="mt-4">
-              <Button onClick={handleAnalyze} disabled={isAnalyzing} className="w-full">
-                {isAnalyzing ? "AI分析中..." : "开始AI分析"}
+            <div className="mt-4 flex justify-center">
+              <Button
+                onClick={handleAnalyze}
+                disabled={
+                  isAnalyzing ||
+                  (inputMethod === "file" && fileProcessingStatus !== "completed")
+                }
+                className="px-8 py-2 min-w-[160px]"
+              >
+                {isAnalyzing ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>AI分析中...</span>
+                  </div>
+                ) : (
+                  "开始AI分析"
+                )}
               </Button>
             </div>
           )}
