@@ -987,13 +987,20 @@ function ScriptAnalysisSection({
 
     setIsAnalyzing(true)
     try {
+      // 添加前端超时控制（70秒，比后端稍长）
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 70000)
+
       const response = await fetch("/api/analyze-script", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
         body: JSON.stringify({ content, title, model: selectedModel }),
       })
+
+      clearTimeout(timeoutId)
 
       const result = await response.json()
 
@@ -1019,7 +1026,17 @@ function ScriptAnalysisSection({
       }
     } catch (error) {
       console.error("Analysis error:", error)
-      alert("分析失败，请检查网络连接")
+
+      let errorMessage = "分析失败，请检查网络连接"
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = "请求超时，请稍后重试或使用更短的文本"
+        } else if (error.message.includes('fetch')) {
+          errorMessage = "网络连接错误，请检查网络后重试"
+        }
+      }
+
+      alert(errorMessage)
     } finally {
       setIsAnalyzing(false)
     }

@@ -5,8 +5,21 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { handleOpenRouterError, validateOpenRouterKey, parseAIResponse } from "@/lib/api-utils"
 
+// 预热函数，减少冷启动延迟
+export async function GET() {
+  return NextResponse.json({
+    status: "ready",
+    timestamp: new Date().toISOString(),
+    message: "Analyze script API is ready"
+  })
+}
+
 // 快速修复版本 - 简化错误处理
 export async function POST(request: NextRequest) {
+  // 记录请求开始时间，用于监控冷启动
+  const startTime = Date.now()
+  console.log("[DEBUG] Request started at:", new Date().toISOString())
+
   try {
     const { content, title, selectedModel, model } = await request.json()
 
@@ -60,16 +73,21 @@ export async function POST(request: NextRequest) {
       wasTruncated
     })
 
-    // 调用OpenRouter API
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://v0.dev",
-        "X-Title": "Comic Production Tool",
-      },
-      body: JSON.stringify({
+    // 调用OpenRouter API（添加超时控制）
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60秒超时
+
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://v0.dev",
+          "X-Title": "Comic Production Tool",
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
         model: finalSelectedModel,
         messages: [
           {
@@ -128,10 +146,21 @@ ${processedContent}
       }),
     })
 
+    clearTimeout(timeoutId) // 清除超时定时器
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       const errorMessage = handleOpenRouterError(response, errorData)
       throw new Error(errorMessage)
+    }
+
+    } catch (fetchError) {
+      clearTimeout(timeoutId) // 确保清除超时定时器
+
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        throw new Error("请求超时，请稍后重试或使用更短的文本")
+      }
+      throw fetchError
     }
 
     const data = await response.json()
@@ -191,12 +220,19 @@ ${processedContent}
     }
 
     // 返回成功结果
+    const totalTime = Date.now() - startTime
+    console.log(`[DEBUG] Request completed in ${totalTime}ms`)
+
     return NextResponse.json({
       success: true,
       data: analysisResult,
       title: title || "未知剧本",
       scriptId: analysisResult.scriptId,
       truncated: wasTruncated,
+      performance: {
+        totalTime,
+        timestamp: new Date().toISOString()
+      },
       ...(wasTruncated && {
         truncationInfo: {
           originalLength: content.length,
