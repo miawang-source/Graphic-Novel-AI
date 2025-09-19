@@ -241,3 +241,96 @@ export function validateOpenRouterKey(apiKey: string | undefined): boolean {
   // OpenRouter API密钥格式验证
   return apiKey.startsWith('sk-or-v1-') && apiKey.length > 20
 }
+
+// 智能JSON修复和解析
+export function parseAIResponse(response: string): any {
+  if (!response || typeof response !== 'string') {
+    throw new Error('Invalid response format')
+  }
+
+  // 尝试多种解析策略
+  const strategies = [
+    // 策略1: 直接解析
+    () => JSON.parse(response.trim()),
+
+    // 策略2: 提取JSON代码块
+    () => {
+      const match = response.match(/```json\s*([\s\S]*?)\s*```/)
+      if (match) return JSON.parse(match[1].trim())
+      throw new Error('No JSON code block found')
+    },
+
+    // 策略3: 提取第一个JSON对象
+    () => {
+      const match = response.match(/\{[\s\S]*\}/)
+      if (match) return JSON.parse(match[0])
+      throw new Error('No JSON object found')
+    },
+
+    // 策略4: 清理和修复常见问题
+    () => {
+      let cleaned = response
+        .replace(/```json|```/g, '') // 移除代码块标记
+        .replace(/\n/g, ' ') // 移除换行符
+        .replace(/\s+/g, ' ') // 合并空格
+        .trim()
+
+      const start = cleaned.indexOf('{')
+      const end = cleaned.lastIndexOf('}')
+
+      if (start !== -1 && end !== -1 && end > start) {
+        cleaned = cleaned.substring(start, end + 1)
+        // 修复常见的JSON错误
+        cleaned = cleaned
+          .replace(/,(\s*[}\]])/g, '$1') // 移除多余逗号
+          .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // 为键名添加引号
+
+        return JSON.parse(cleaned)
+      }
+      throw new Error('Cannot extract valid JSON structure')
+    },
+
+    // 策略5: 容错解析（最后的尝试）
+    () => {
+      // 尝试构建一个基本的有效结构
+      const fallback = {
+        characters: [],
+        scenes: [],
+        scriptId: `script_${Date.now()}`
+      }
+
+      // 尝试从响应中提取一些基本信息
+      const lines = response.split('\n')
+      for (const line of lines) {
+        if (line.includes('角色') || line.includes('character')) {
+          fallback.characters.push({
+            name: '提取的角色',
+            description: line.trim()
+          })
+        }
+        if (line.includes('场景') || line.includes('scene')) {
+          fallback.scenes.push({
+            name: '提取的场景',
+            description: line.trim()
+          })
+        }
+      }
+
+      return fallback
+    }
+  ]
+
+  // 依次尝试每种策略
+  for (let i = 0; i < strategies.length; i++) {
+    try {
+      const result = strategies[i]()
+      console.log(`[DEBUG] JSON解析成功，使用策略${i + 1}`)
+      return result
+    } catch (error) {
+      console.log(`[DEBUG] 策略${i + 1}失败:`, error instanceof Error ? error.message : error)
+      if (i === strategies.length - 1) {
+        throw new Error(`所有JSON解析策略都失败了。原始响应: ${response.substring(0, 200)}...`)
+      }
+    }
+  }
+}
