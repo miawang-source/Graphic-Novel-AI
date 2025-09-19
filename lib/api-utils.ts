@@ -198,6 +198,46 @@ export function setCacheHeaders(response: NextResponse, maxAge: number = 0): Nex
     response.headers.set('Pragma', 'no-cache')
     response.headers.set('Expires', '0')
   }
-  
+
   return response
+}
+
+// OpenRouter API 错误处理
+export function handleOpenRouterError(response: Response, errorData: any): string {
+  let errorMessage = ""
+
+  switch (response.status) {
+    case 401:
+      errorMessage = "API密钥无效或已过期。请检查OpenRouter API密钥配置。"
+      break
+    case 403:
+      errorMessage = "API访问被拒绝。可能是密钥权限不足或账户余额不足。"
+      break
+    case 429:
+      errorMessage = "API请求频率过高，请稍后重试。"
+      break
+    case 500:
+      errorMessage = "OpenRouter服务器内部错误，请稍后重试。"
+      break
+    case 502:
+    case 503:
+    case 504:
+      errorMessage = "OpenRouter服务暂时不可用，请稍后重试。"
+      break
+    default:
+      const details = errorData?.error?.message || errorData?.message || JSON.stringify(errorData)
+      errorMessage = `OpenRouter API错误 (${response.status}): ${details}`
+  }
+
+  return errorMessage
+}
+
+// 验证OpenRouter API密钥
+export function validateOpenRouterKey(apiKey: string | undefined): boolean {
+  if (!apiKey) {
+    return false
+  }
+
+  // OpenRouter API密钥格式验证
+  return apiKey.startsWith('sk-or-v1-') && apiKey.length > 20
 }

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
+import { handleOpenRouterError, validateOpenRouterKey } from "@/lib/api-utils"
 
 async function findMatchingMaterial(promptData: any, supabase: any) {
   try {
@@ -156,7 +157,9 @@ export async function POST(request: NextRequest) {
         })
 
         if (!response.ok) {
-          throw new Error(`OpenRouter API error: ${response.status}`)
+          const errorData = await response.json().catch(() => ({}))
+          const errorMessage = handleOpenRouterError(response, errorData)
+          throw new Error(errorMessage)
         }
 
         const data = await response.json()

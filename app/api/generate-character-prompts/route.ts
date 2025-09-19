@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
+import { handleOpenRouterError, validateOpenRouterKey } from "@/lib/api-utils"
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
 const MODEL = "google/gemini-flash-1.5"
@@ -865,7 +866,9 @@ export async function POST(request: NextRequest) {
         })
 
         if (!response.ok) {
-          throw new Error("OpenRouter API error: " + response.status)
+          const errorData = await response.json().catch(() => ({}))
+          const errorMessage = handleOpenRouterError(response, errorData)
+          throw new Error(errorMessage)
         }
 
         const data = await response.json()

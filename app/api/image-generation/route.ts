@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { handleOpenRouterError, validateOpenRouterKey } from "@/lib/api-utils"
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +17,13 @@ export async function POST(request: NextRequest) {
 
     if (!images || images.length === 0) {
       return NextResponse.json({ error: "No images provided" }, { status: 400 })
+    }
+
+    // 验证API密钥
+    if (!validateOpenRouterKey(process.env.OPENROUTER_API_KEY)) {
+      return NextResponse.json({
+        error: "OpenRouter API密钥未配置或格式无效，请联系管理员"
+      }, { status: 500 })
     }
 
     // 构建消息内容 - 明确要求生成图片
@@ -63,10 +71,11 @@ export async function POST(request: NextRequest) {
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
+      const errorData = await response.json().catch(() => ({}))
       console.error("[ERROR] OpenRouter API error:", response.status, response.statusText)
-      console.error("[ERROR] OpenRouter error details:", errorText)
-      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`)
+      console.error("[ERROR] OpenRouter error details:", errorData)
+      const errorMessage = handleOpenRouterError(response, errorData)
+      throw new Error(errorMessage)
     }
 
     const data = await response.json()
@@ -207,7 +216,7 @@ CRITICAL: Return actual image data, not text. I need a visual image file.`
         const retryResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer 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`,
+            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
