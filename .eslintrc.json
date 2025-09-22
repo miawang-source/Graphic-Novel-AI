@@ -1,0 +1,36 @@
+{
+  "extends": [
+    "next/core-web-vitals"
+  ],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/prefer-const": "off",
+    "no-console": "off",
+    "prefer-const": "off",
+    "no-var": "warn",
+    "object-shorthand": "off",
+    "prefer-template": "off",
+    "eqeqeq": "off",
+    "no-duplicate-imports": "off",
+    "no-unused-expressions": "off",
+    "no-unreachable": "warn",
+    "no-debugger": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "no-console": "off",
+        "@typescript-eslint/no-explicit-any": "off"
+      }
+    },
+    {
+      "files": ["scripts/**/*.js"],
+      "rules": {
+        "no-console": "off",
+        "@typescript-eslint/no-var-requires": "off"
+      }
+    }
+  ]
+}
