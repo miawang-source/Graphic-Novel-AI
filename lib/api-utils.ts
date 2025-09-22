@@ -293,7 +293,11 @@ export function parseAIResponse(response: string): any {
     // 策略5: 容错解析（最后的尝试）
     () => {
       // 尝试构建一个基本的有效结构
-      const fallback = {
+      const fallback: {
+        characters: Array<{ name: string; description: string; role_type?: string }>;
+        scenes: Array<{ name: string; description: string }>;
+        scriptId: string;
+      } = {
         characters: [],
         scenes: [],
         scriptId: `script_${Date.now()}`
@@ -305,7 +309,8 @@ export function parseAIResponse(response: string): any {
         if (line.includes('角色') || line.includes('character')) {
           fallback.characters.push({
             name: '提取的角色',
-            description: line.trim()
+            description: line.trim(),
+            role_type: 'main'
           })
         }
         if (line.includes('场景') || line.includes('scene')) {
