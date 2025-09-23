@@ -16,60 +16,200 @@ function parseCharacterDescription(description: string) {
     eyes: "",
     face: "",
     body: "",
+    skin: "",
+    height: "",
+    specialFeatures: "",
     outfits: [] as string[]
   }
 
   // 提取性别和年龄 - 支持多种格式
   const genderMatch = description.match(/性别[：:]([^；，。]+)/) ||
-                     description.match(/性别[：:]\s*([^；，。]+)/)
-  if (genderMatch && genderMatch[1]) info.gender = genderMatch[1].trim()
+                     description.match(/性别[：:]\s*([^；，。]+)/) ||
+                     description.match(/([男女]性?)/) ||
+                     description.match(/(男子|女子|男人|女人|男孩|女孩)/)
+  if (genderMatch && genderMatch[1]) {
+    let gender = genderMatch[1].trim()
+    // 标准化性别描述
+    if (gender.includes('男')) gender = '男性'
+    if (gender.includes('女')) gender = '女性'
+    info.gender = gender
+  }
 
   const ageMatch = description.match(/年龄[：:]([^；，。]+)/) ||
-                  description.match(/年龄[：:]\s*([^；，。]+)/)
+                  description.match(/年龄[：:]\s*([^；，。]+)/) ||
+                  description.match(/(\d+岁)/) ||
+                  description.match(/(青年|少年|中年|老年|幼年|成年)/)
   if (ageMatch && ageMatch[1]) info.age = ageMatch[1].trim()
 
-  // 提取身份职业
+  // 提取身份职业 - 扩展匹配模式
   const occupationMatch = description.match(/身份职业[：:]([^；，。]+)/) ||
-                         description.match(/身份职业[：:]\s*([^；，。]+)/)
+                         description.match(/身份职业[：:]\s*([^；，。]+)/) ||
+                         description.match(/身份[：:]([^；，。]+)/) ||
+                         description.match(/职业[：:]([^；，。]+)/) ||
+                         description.match(/(皇帝|皇后|公主|王子|将军|大臣|书生|侠客|医生|老师|学生|商人|农民)/)
   if (occupationMatch && occupationMatch[1]) info.occupation = occupationMatch[1].trim()
 
-  // 提取性格特质
+  // 提取性格特质 - 扩展匹配
   const personalityMatch = description.match(/性格特质[：:]([^。；，]+)/) ||
-                          description.match(/性格特质[：:]\s*([^。；，]+)/)
+                          description.match(/性格特质[：:]\s*([^。；，]+)/) ||
+                          description.match(/性格[：:]([^。；，]+)/) ||
+                          description.match(/(温柔|冷酷|活泼|内向|开朗|忧郁|坚强|脆弱|聪明|愚钝|勇敢|胆小)/)
   if (personalityMatch && personalityMatch[1]) info.personality = personalityMatch[1].trim()
 
-  // 提取外貌特征
+  // 提取头发特征 - 更全面的匹配
   const hairMatch = description.match(/发型[：:]([^；，。]+)/) ||
                    description.match(/头发[：:]([^；，。]+)/) ||
-                   description.match(/发色[：:]([^；，。]+)/)
+                   description.match(/发色[：:]([^；，。]+)/) ||
+                   description.match(/(黑发|金发|银发|白发|棕发|红发|紫发|蓝发|绿发)/) ||
+                   description.match(/(长发|短发|卷发|直发|马尾|丸子头|双马尾)/) ||
+                   description.match(/([^，。]*(?:发|头发)[^，。]*)/)
   if (hairMatch && hairMatch[1]) info.hair = hairMatch[1].trim()
 
+  // 提取眼睛特征 - 更详细
   const eyesMatch = description.match(/眼睛[：:]([^；，。]+)/) ||
-                   description.match(/眼部[：:]([^；，。]+)/)
+                   description.match(/眼部[：:]([^；，。]+)/) ||
+                   description.match(/(黑眼|蓝眼|绿眼|灰眼|棕眼|紫眼|金眼|红眼)/) ||
+                   description.match(/([^，。]*眼[^，。]*)/)
   if (eyesMatch && eyesMatch[1]) info.eyes = eyesMatch[1].trim()
 
-  // 提取面部特征
+  // 提取面部特征 - 更全面
   const faceMatch = description.match(/面部特征[：:]([^；，。]+)/) ||
                    description.match(/脸型[：:]([^；，。]+)/) ||
-                   description.match(/五官[：:]([^；，。]+)/)
+                   description.match(/五官[：:]([^；，。]+)/) ||
+                   description.match(/(瓜子脸|圆脸|方脸|长脸|鹅蛋脸)/) ||
+                   description.match(/([^，。]*(?:脸|面容|五官)[^，。]*)/)
   if (faceMatch && faceMatch[1]) info.face = faceMatch[1].trim()
 
   // 提取身材特征
   const bodyMatch = description.match(/身材[：:]([^；，。]+)/) ||
                    description.match(/体型[：:]([^；，。]+)/) ||
-                   description.match(/身材比例[：:]([^；，。]+)/)
+                   description.match(/身材比例[：:]([^；，。]+)/) ||
+                   description.match(/(高挑|娇小|匀称|丰满|纤细|魁梧|瘦弱)/) ||
+                   description.match(/([^，。]*(?:身材|体型)[^，。]*)/)
   if (bodyMatch && bodyMatch[1]) info.body = bodyMatch[1].trim()
 
-  // 提取服装（修正格式匹配，保留完整描述）
-  const outfitMatches = description.match(/服装\d+[：:]([^；。]+)/g)
-  if (outfitMatches) {
-    info.outfits = outfitMatches.slice(0, 4).map(match => {
-      // 保留完整的服装描述，包括场景信息
-      return match.replace(/服装\d+[：:]/, '').trim()
-    })
+  // 提取肌肤特征
+  const skinMatch = description.match(/肌肤[：:]([^；，。]+)/) ||
+                   description.match(/皮肤[：:]([^；，。]+)/) ||
+                   description.match(/(白皙|古铜|健康|苍白|红润)/) ||
+                   description.match(/([^，。]*(?:肌肤|皮肤)[^，。]*)/)
+  if (skinMatch && skinMatch[1]) info.skin = skinMatch[1].trim()
+
+  // 提取身高信息
+  const heightMatch = description.match(/身高[：:]([^；，。]+)/) ||
+                     description.match(/(\d+米|\d+厘米|高挑|娇小)/)
+  if (heightMatch && heightMatch[1]) info.height = heightMatch[1].trim()
+
+  // 提取特殊特征
+  const specialMatch = description.match(/特殊特征[：:]([^；，。]+)/) ||
+                      description.match(/标志性[：:]([^；，。]+)/) ||
+                      description.match(/(疤痕|胎记|纹身|特殊标记)/)
+  if (specialMatch && specialMatch[1]) info.specialFeatures = specialMatch[1].trim()
+
+  // 提取服装信息 - 支持多种格式
+  const outfitPatterns = [
+    /服装\d*[：:]([^；。【】]+)/g,
+    /【服装细节】[：:]?([^【】]+)/g,
+    /日常服装[：:]([^；，。]+)/g,
+    /正式场合服装[：:]([^；，。]+)/g,
+    /(穿着|身着)([^，。；]+)/g
+  ]
+
+  for (const pattern of outfitPatterns) {
+    const matches = description.matchAll(pattern)
+    for (const match of matches) {
+      if (match[1] && match[1].trim()) {
+        info.outfits.push(match[1].trim())
+      }
+    }
   }
 
+  // 去重并限制数量
+  info.outfits = [...new Set(info.outfits)].slice(0, 4)
+
   return info
+}
+
+// 智能服装生成函数
+function generateDefaultOutfits(characterInfo: any): string[] {
+  const { gender, age, occupation, personality } = characterInfo
+  const outfits: string[] = []
+
+  // 根据性别、职业、年龄生成合适的服装
+  if (occupation) {
+    // 根据职业生成服装
+    if (occupation.includes('皇帝') || occupation.includes('君主')) {
+      outfits.push('金黄色龙袍，绣有九龙图案，腰系玉带，头戴金冠')
+      outfits.push('深紫色朝服，金线刺绣，宽袖设计，配黑色朝靴')
+    } else if (occupation.includes('皇后') || occupation.includes('贵妃')) {
+      outfits.push('凤凰刺绣的红色宫装，金丝滚边，配凤冠霞帔')
+      outfits.push('淡雅的粉色宫裙，珠花装饰，轻纱披肩')
+    } else if (occupation.includes('公主')) {
+      outfits.push('粉色或淡蓝色公主裙，蕾丝装饰，配小皇冠')
+      outfits.push('白色纱裙，花朵刺绣，飘逸轻盈')
+    } else if (occupation.includes('将军') || occupation.includes('武将')) {
+      outfits.push('银色盔甲，红色披风，腰佩长剑')
+      outfits.push('黑色武服，简洁实用，配护腕和战靴')
+    } else if (occupation.includes('书生') || occupation.includes('文人')) {
+      outfits.push('白色长袍，青色腰带，手持折扇')
+      outfits.push('淡雅的灰色长衫，简约设计，配布鞋')
+    } else if (occupation.includes('侠客') || occupation.includes('武侠')) {
+      outfits.push('深色武服，紧身设计，便于行动，配长靴')
+      outfits.push('黑色夜行衣，轻便透气，配面罩')
+    } else if (occupation.includes('医生') || occupation.includes('大夫')) {
+      outfits.push('白色医袍，简洁干净，配听诊器')
+      outfits.push('淡蓝色工作服，实用设计')
+    } else if (occupation.includes('学生')) {
+      outfits.push('校服，整洁的白衬衫配深色裤子/裙子')
+      outfits.push('休闲装，T恤配牛仔裤，青春活力')
+    } else if (occupation.includes('商人')) {
+      outfits.push('正式西装，深色系，配领带和皮鞋')
+      outfits.push('商务休闲装，衬衫配西裤')
+    }
+  }
+
+  // 如果没有根据职业生成，则根据性别和年龄生成通用服装
+  if (outfits.length === 0) {
+    if (gender && gender.includes('女')) {
+      // 女性通用服装
+      if (age && (age.includes('少') || age.includes('年轻'))) {
+        outfits.push('清新的连衣裙，淡色系，简约设计')
+        outfits.push('休闲装，T恤配短裙或牛仔裤')
+      } else {
+        outfits.push('优雅的长裙，深色系，成熟稳重')
+        outfits.push('职业装，西装套装，干练大方')
+      }
+    } else if (gender && gender.includes('男')) {
+      // 男性通用服装
+      if (age && (age.includes('少') || age.includes('年轻'))) {
+        outfits.push('休闲装，T恤配牛仔裤，青春阳光')
+        outfits.push('运动装，简洁舒适，活力四射')
+      } else {
+        outfits.push('正装，深色西装，成熟稳重')
+        outfits.push('商务休闲，衬衫配西裤，干练专业')
+      }
+    }
+  }
+
+  // 根据性格特点调整服装风格
+  if (personality) {
+    if (personality.includes('温柔') || personality.includes('优雅')) {
+      outfits.forEach((outfit, index) => {
+        outfits[index] = outfit.replace(/深色/g, '淡雅色').replace(/黑色/g, '柔和色调')
+      })
+    } else if (personality.includes('冷酷') || personality.includes('严肃')) {
+      outfits.forEach((outfit, index) => {
+        outfits[index] = outfit.replace(/淡色/g, '深色').replace(/粉色/g, '黑色')
+      })
+    }
+  }
+
+  // 确保至少有一套服装
+  if (outfits.length === 0) {
+    outfits.push('简约的日常服装，颜色搭配和谐，符合角色气质')
+  }
+
+  return outfits.slice(0, 3) // 最多返回3套服装
 }
 
 // 同义词词典 - 用于特征匹配
@@ -273,39 +413,51 @@ function detectOutfitEraFromDescription(outfits: string[]) {
 function buildUserPrompt(character: any) {
   const info = parseCharacterDescription(character.description)
 
-  let prompt = "Generate concise manga-style art prompts for character: " + character.name + "\n\n"
-  prompt += "Character Type: " + (character.role_type === "main" ? "protagonist" : "supporting character") + "\n"
+  let prompt = `为角色"${character.name}"生成专业的AI绘图提示词\n\n`
+  prompt += `角色类型: ${character.role_type === "main" ? "主角" : "配角"}\n`
 
   // 基本信息
-  if (info.gender) prompt += "Gender: " + info.gender + "\n"
-  if (info.age) prompt += "Age: " + info.age + "\n"
-  if (info.occupation) prompt += "Occupation: " + info.occupation + "\n"
-  if (info.personality) prompt += "Personality: " + info.personality + "\n"
+  if (info.gender) prompt += `性别: ${info.gender}\n`
+  if (info.age) prompt += `年龄: ${info.age}\n`
+  if (info.occupation) prompt += `身份职业: ${info.occupation}\n`
+  if (info.personality) prompt += `性格特质: ${info.personality}\n`
 
-  // 外貌特征
-  if (info.hair) prompt += "Hair: " + info.hair + "\n"
-  if (info.eyes) prompt += "Eyes: " + info.eyes + "\n"
-  if (info.face) prompt += "Face: " + info.face + "\n"
-  if (info.body) prompt += "Body: " + info.body + "\n"
+  // 详细外貌特征
+  prompt += "\n【外貌特征详情】:\n"
+  if (info.hair) prompt += `头发: ${info.hair}\n`
+  if (info.eyes) prompt += `眼睛: ${info.eyes}\n`
+  if (info.face) prompt += `面部: ${info.face}\n`
+  if (info.body) prompt += `身材: ${info.body}\n`
+  if (info.skin) prompt += `肌肤: ${info.skin}\n`
+  if (info.height) prompt += `身高: ${info.height}\n`
+  if (info.specialFeatures) prompt += `特殊特征: ${info.specialFeatures}\n`
+
+  // 服装处理 - 智能生成或使用现有描述
+  let finalOutfits = info.outfits
+  if (finalOutfits.length === 0) {
+    // 没有服装信息时，智能生成
+    finalOutfits = generateDefaultOutfits(info)
+    prompt += "\n【智能生成服装】（根据角色设定自动生成）:\n"
+  } else {
+    prompt += "\n【原始服装描述】:\n"
+  }
+
+  finalOutfits.forEach((outfit, index) => {
+    prompt += `服装${index + 1}: ${outfit}\n`
+  })
 
   // 检测时代背景
-  const eraType = detectOutfitEraFromDescription(info.outfits)
+  const eraType = detectOutfitEraFromDescription(finalOutfits)
   if (eraType !== 'mixed') {
-    prompt += "Era Context: " + (eraType === 'ancient' ? "Ancient Chinese setting" : "Modern setting") + "\n"
+    prompt += `\n时代背景: ${eraType === 'ancient' ? '古代中国' : '现代'}\n`
   }
 
-  if (info.outfits.length > 0) {
-    prompt += "\nOutfit Details:\n"
-    info.outfits.forEach((outfit, index) => {
-      prompt += `Version ${index + 1}: ${outfit}\n`
-    })
-  }
-
-  prompt += "\nPlease create manga-style prompts based on these exact details. "
-  prompt += "Include ALL the character features (gender, age, appearance, personality) in the base prompt. "
-  prompt += "IMPORTANT: Add era context (古代/ancient or 现代/modern) to the base character description. "
-  prompt += "For outfits, use the EXACT descriptions provided above - do not create new outfit descriptions. "
-  prompt += "Generate both Chinese and English prompts with outfit versions matching the provided descriptions."
+  prompt += `\n请基于以上信息生成专业的AI绘图提示词：
+1. 中文提示词要包含所有关键外貌特征，确保AI能准确绘制
+2. 英文提示词要符合国际AI绘图平台的标准格式
+3. 服装版本根据实际数量展示（${finalOutfits.length}个版本），每个版本都要详细描述颜色、材质、款式
+4. 强调漫画/动漫风格，避免写实风格
+5. 确保时代背景在角色描述中明确体现`
 
   return prompt
 }
@@ -319,13 +471,15 @@ function parseAIResponse(aiResponse: string, characterName: string) {
   const chineseSection = aiResponse.match(/中文提示词[：:]\s*\n?([\s\S]*?)(?=英文提示词|$)/i)
   if (chineseSection) {
     chinesePrompt = chineseSection[1].trim()
-    // 清理多余的空行，特别是服装版本部分的空行
-    // 先处理"服装版本："后面的空行
+    // 清理多余的空行，保持服装版本的格式
     chinesePrompt = chinesePrompt.replace(/(\*\*服装版本[：:]\*\*)\s*\n\s*(\*\*版本)/g, '$1\n$2')
-    // 然后处理其他多余的空行
     chinesePrompt = chinesePrompt.replace(/\n\s*\n/g, '\n')
+
+    // 移除占位符文本
+    chinesePrompt = chinesePrompt.replace(/\[服装描述\]/g, '')
+    chinesePrompt = chinesePrompt.replace(/\[用户提供的服装\d*描述\]/g, '')
   } else {
-    // 备用方案：只提取第一行
+    // 备用方案：只提取第一行基础描述
     const chineseMatch = aiResponse.match(/中文提示词[：:]\s*\n?([^\n*]+)/i) ||
                         aiResponse.match(/漫画风格[，,]([^\n*]+)/i)
     if (chineseMatch) {
@@ -340,11 +494,15 @@ function parseAIResponse(aiResponse: string, characterName: string) {
   const englishSection = aiResponse.match(/英文提示词[：:]\s*\n?([\s\S]*?)$/i)
   if (englishSection) {
     englishPrompt = englishSection[1].trim()
-    // 清理多余的空行，特别是服装版本部分的空行
+    // 清理多余的空行，保持服装版本的格式
     englishPrompt = englishPrompt.replace(/(\*\*Outfit Versions[：:]\*\*)\s*\n\s*\n/g, '$1\n')
     englishPrompt = englishPrompt.replace(/\n\s*\n/g, '\n')
+
+    // 移除占位符文本
+    englishPrompt = englishPrompt.replace(/\[user provided outfit \d* description\]/g, '')
+    englishPrompt = englishPrompt.replace(/\[outfit description\]/g, '')
   } else {
-    // 备用方案：只提取第一行
+    // 备用方案：只提取第一行基础描述
     const englishMatch = aiResponse.match(/英文提示词[：:]\s*\n?([^\n*]+)/i) ||
                         aiResponse.match(/manga style[,，]\s*([^\n*]+)/i)
     if (englishMatch) {
@@ -352,9 +510,18 @@ function parseAIResponse(aiResponse: string, characterName: string) {
     }
   }
 
+  // 验证和清理最终结果
+  if (!chinesePrompt || chinesePrompt.includes('[') || chinesePrompt.length < 10) {
+    chinesePrompt = `漫画风格，${characterName}，动漫角色，详细外貌特征，个性鲜明`
+  }
+
+  if (!englishPrompt || englishPrompt.includes('[') || englishPrompt.length < 10) {
+    englishPrompt = `manga style, ${characterName}, anime character, detailed appearance, distinctive personality`
+  }
+
   return {
-    chinese_prompt: chinesePrompt || ("漫画风格，" + characterName + "，动漫角色"),
-    english_prompt: englishPrompt || ("manga style, " + characterName + ", anime character"),
+    chinese_prompt: chinesePrompt,
+    english_prompt: englishPrompt,
     ai_response: aiResponse
   }
 }
@@ -817,7 +984,40 @@ async function findMultipleMatchingMaterials(promptData: any, supabase: any, lim
   }
 }
 
-const ART_PROMPT_SYSTEM = "你是一个专业的AI美术角色提示词生成器，专门为lora、可灵、即梦、nano banana等AI绘图平台生成简洁有效的漫画风格提示词。\n\n核心要求：\n1. 必须使用提供的角色信息：严格基于用户提供的角色特征（性别、年龄、外貌、性格等）生成提示词\n2. 简洁明了：提示词要简洁，重点突出人物特征和服装特征\n3. 漫画风格：专注于漫画、动漫风格，避免写实、照片、3D风格\n4. 核心要素：人物特征（性别、年龄、发型、眼神、身材、面部特征）+ 服装特征（颜色、款式、材质）\n5. 服装版本：使用用户提供的确切服装描述，不要自己编造\n6. 时代背景：必须在角色描述中明确标注时代背景（古代/现代），例如：\n   - 古代角色：\"一个古代中国的美丽女子\" \"古风贵妃\" \"古代君主\"\n   - 现代角色：\"一个现代都市女性\" \"现代商务男士\" \"年轻的现代学生\"\n\n输出格式（必须严格遵循，保持与示例一致）：\n\n中文提示词：\n漫画风格，角色名，[古代/现代][性别]，[年龄]，[详细外貌特征]，[性格特质]\n\n**服装版本：**\n**版本1：** [用户提供的服装1描述]\n**版本2：** [用户提供的服装2描述]\n**版本3：** [用户提供的服装3描述]\n\n英文提示词：\nmanga style, character name, [ancient/modern] [gender], [age], [detailed appearance], [personality traits]\n\n**Outfit Versions:**\n**Version 1:** [user provided outfit 1 description]\n**Version 2:** [user provided outfit 2 description]\n**Version 3:** [user provided outfit 3 description]"
+const ART_PROMPT_SYSTEM = `你是一个专业的AI美术提示词生成器，专门为AI绘图平台（如Midjourney、Stable Diffusion、可灵、即梦等）生成高质量的角色绘画提示词。你的任务是将角色描述转换为精确、详细的美术指令，供AI模型生成漫画风格的角色插画。
+
+🎨 **美术生图核心要求**：
+1. **详细外貌描述**：必须包含所有关键视觉元素 - 发型发色、眼睛特征、面部轮廓、身材体型、肌肤特点
+2. **精确服装描述**：颜色、材质、款式、细节装饰，确保AI能准确理解并绘制
+3. **漫画风格定位**：专注于anime/manga风格，避免写实、照片、3D风格
+4. **时代背景明确**：古代/现代设定影响服装和整体画风
+5. **角色气质表达**：通过外貌和服装体现性格特质
+
+📋 **服装处理规则**：
+- 如果提供了具体服装描述，严格使用原描述
+- 如果没有服装信息，根据角色身份、性别、年龄、性格智能生成合适的服装
+- 服装版本数量灵活：有几套展示几套，不强制要求3套
+- 每套服装都要有具体的颜色、材质、款式描述
+
+🖼️ **输出格式**（严格遵循）：
+
+中文提示词：
+漫画风格，[角色名]，[古代/现代][性别]，[年龄]，[详细外貌特征：发型发色+眼睛+面部+身材+肌肤]，[性格特质]
+
+**服装版本：**
+**版本1：** [具体服装描述：颜色+材质+款式+细节]
+**版本2：** [具体服装描述：颜色+材质+款式+细节]
+（根据实际服装数量展示，可以是1-3个版本）
+
+英文提示词：
+manga style, [character name], [ancient/modern] [gender], [age], [detailed appearance: hair+eyes+face+body+skin], [personality traits]
+
+**Outfit Versions:**
+**Version 1:** [specific outfit description: color+material+style+details]
+**Version 2:** [specific outfit description: color+material+style+details]
+（根据实际服装数量展示，可以是1-3个版本）
+
+⚠️ **重要提醒**：这些提示词将直接用于AI绘图，必须足够详细和准确，让AI能够生成高质量的角色插画。`
 
 export async function POST(request: NextRequest) {
   try {
