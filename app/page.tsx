@@ -767,7 +767,7 @@ ${expandedPrompt.character.english_prompt}`
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              您确定要删除角色 "{characterToDelete?.name}" 吗？
+              您确定要删除角色 &ldquo;{characterToDelete?.name}&rdquo; 吗？
             </p>
             <p className="text-sm text-red-600">
               {characterToDelete?.id
@@ -2388,7 +2388,7 @@ function MaterialLibrarySection() {
             <DialogTitle>确认删除素材</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p>确定要删除素材 "{materialToDelete?.title || materialToDelete?.original_filename || '未命名素材'}" 吗？</p>
+            <p>确定要删除素材 &ldquo;{materialToDelete?.title || materialToDelete?.original_filename || '未命名素材'}&rdquo; 吗？</p>
             <p className="text-sm text-muted-foreground">此操作无法撤销。</p>
             <div className="flex justify-end gap-2">
               <Button
@@ -2851,7 +2851,7 @@ function CanvasGenerationSection() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               <ol className="space-y-2">
-                <li>1. 点击"打开画布工作区"</li>
+                <li>1. 点击&ldquo;打开画布工作区&rdquo;</li>
                 <li>2. 从素材库选择图片</li>
                 <li>3. 拖拽到画布中</li>
                 <li>4. 调整位置和大小</li>

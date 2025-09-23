@@ -1184,7 +1184,7 @@ function MaterialLibraryDialog({
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                您确定要彻底删除素材 "{materialToDelete?.title}" 吗？
+                您确定要彻底删除素材 &ldquo;{materialToDelete?.title}&rdquo; 吗？
               </p>
               <p className="text-sm text-red-600">
                 此操作将同时删除数据库记录和存储桶中的文件，且无法恢复。
