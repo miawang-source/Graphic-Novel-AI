@@ -478,12 +478,18 @@ function parseAIResponse(aiResponse: string, characterName: string) {
     // 移除占位符文本
     chinesePrompt = chinesePrompt.replace(/\[服装描述\]/g, '')
     chinesePrompt = chinesePrompt.replace(/\[用户提供的服装\d*描述\]/g, '')
+
+    // 移除不需要的前缀：漫画风格，角色名
+    chinesePrompt = chinesePrompt.replace(/^漫画风格[，,]\s*[^，,]+[，,]\s*/i, '')
+    chinesePrompt = chinesePrompt.replace(/^manga style[,，]\s*[^,，]+[,，]\s*/i, '')
   } else {
-    // 备用方案：只提取第一行基础描述
-    const chineseMatch = aiResponse.match(/中文提示词[：:]\s*\n?([^\n*]+)/i) ||
-                        aiResponse.match(/漫画风格[，,]([^\n*]+)/i)
+    // 备用方案：只提取第一行基础描述，但去掉前缀
+    const chineseMatch = aiResponse.match(/中文提示词[：:]\s*\n?([^\n*]+)/i)
     if (chineseMatch) {
-      chinesePrompt = chineseMatch[1].trim()
+      let prompt = chineseMatch[1].trim()
+      // 移除"漫画风格，角色名，"前缀
+      prompt = prompt.replace(/^漫画风格[，,]\s*[^，,]+[，,]\s*/i, '')
+      chinesePrompt = prompt
     }
   }
 
@@ -501,22 +507,27 @@ function parseAIResponse(aiResponse: string, characterName: string) {
     // 移除占位符文本
     englishPrompt = englishPrompt.replace(/\[user provided outfit \d* description\]/g, '')
     englishPrompt = englishPrompt.replace(/\[outfit description\]/g, '')
+
+    // 移除不需要的前缀：manga style, character name
+    englishPrompt = englishPrompt.replace(/^manga style[,，]\s*[^,，]+[,，]\s*/i, '')
   } else {
-    // 备用方案：只提取第一行基础描述
-    const englishMatch = aiResponse.match(/英文提示词[：:]\s*\n?([^\n*]+)/i) ||
-                        aiResponse.match(/manga style[,，]\s*([^\n*]+)/i)
+    // 备用方案：只提取第一行基础描述，但去掉前缀
+    const englishMatch = aiResponse.match(/英文提示词[：:]\s*\n?([^\n*]+)/i)
     if (englishMatch) {
-      englishPrompt = englishMatch[1].trim()
+      let prompt = englishMatch[1].trim()
+      // 移除"manga style, character name,"前缀
+      prompt = prompt.replace(/^manga style[,，]\s*[^,，]+[,，]\s*/i, '')
+      englishPrompt = prompt
     }
   }
 
   // 验证和清理最终结果
-  if (!chinesePrompt || chinesePrompt.includes('[') || chinesePrompt.length < 10) {
-    chinesePrompt = `漫画风格，${characterName}，动漫角色，详细外貌特征，个性鲜明`
+  if (!chinesePrompt || chinesePrompt.includes('[') || chinesePrompt.length < 5) {
+    chinesePrompt = `古代女性，年轻，详细外貌特征，个性鲜明，漫画风格`
   }
 
-  if (!englishPrompt || englishPrompt.includes('[') || englishPrompt.length < 10) {
-    englishPrompt = `manga style, ${characterName}, anime character, detailed appearance, distinctive personality`
+  if (!englishPrompt || englishPrompt.includes('[') || englishPrompt.length < 5) {
+    englishPrompt = `ancient female, young, detailed appearance, distinctive personality, manga style`
   }
 
   return {
@@ -1002,7 +1013,7 @@ const ART_PROMPT_SYSTEM = `你是一个专业的AI美术提示词生成器，专
 🖼️ **输出格式**（严格遵循）：
 
 中文提示词：
-漫画风格，[角色名]，[古代/现代][性别]，[年龄]，[详细外貌特征：发型发色+眼睛+面部+身材+肌肤]，[性格特质]
+[古代/现代][性别]，[年龄]，[详细外貌特征：发型发色+眼睛+面部+身材+肌肤]，[性格特质]，漫画风格
 
 **服装版本：**
 **版本1：** [具体服装描述：颜色+材质+款式+细节]
@@ -1010,7 +1021,7 @@ const ART_PROMPT_SYSTEM = `你是一个专业的AI美术提示词生成器，专
 （根据实际服装数量展示，可以是1-3个版本）
 
 英文提示词：
-manga style, [character name], [ancient/modern] [gender], [age], [detailed appearance: hair+eyes+face+body+skin], [personality traits]
+[ancient/modern] [gender], [age], [detailed appearance: hair+eyes+face+body+skin], [personality traits], manga style
 
 **Outfit Versions:**
 **Version 1:** [specific outfit description: color+material+style+details]
