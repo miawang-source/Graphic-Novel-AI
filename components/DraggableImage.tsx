@@ -4,7 +4,19 @@ import React from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
-import { Download, Save } from 'lucide-react'
+import { Download, Save, Archive } from 'lucide-react'
+
+interface CanvasImage {
+  id: string
+  src: string
+  x: number
+  y: number
+  width: number
+  height: number
+  selected: boolean
+  originalFile?: File
+  materialId?: string
+}
 
 interface DraggableImageProps {
   id: string
@@ -14,8 +26,11 @@ interface DraggableImageProps {
   width: number
   height: number
   isSelected: boolean
+  image: CanvasImage
   onSelect: (id: string, event: React.MouseEvent) => void
   onSave: (src: string) => void
+  onDownloadOriginal: (image: CanvasImage) => void
+  onSaveToLibrary: (image: CanvasImage) => void
   onResizeStart: (id: string, event: React.MouseEvent) => void
 }
 
@@ -27,8 +42,11 @@ export function DraggableImage({
   width,
   height,
   isSelected,
+  image,
   onSelect,
   onSave,
+  onDownloadOriginal,
+  onSaveToLibrary,
   onResizeStart
 }: DraggableImageProps) {
   const {
@@ -51,7 +69,9 @@ export function DraggableImage({
     top: y,
     width: width,
     height: height,
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : 'translate3d(0, 0, 0)',
+    // 在拖拽过程中不应用transform，因为位置已经通过实时更新的x, y坐标来处理
+    // 这样避免了双重移动和松开鼠标时的"晃动"效果
+    transform: 'translate3d(0, 0, 0)',
     userSelect: 'none' as const,
     zIndex: isDragging ? 1000 : 1,
     willChange: isDragging ? 'transform' : 'auto', // 拖拽时启用硬件加速
@@ -61,6 +81,7 @@ export function DraggableImage({
     <div
       ref={setNodeRef}
       style={style}
+      data-draggable-image="true"
       className={`cursor-pointer ${
         isDragging
           ? 'cursor-grabbing opacity-80'
@@ -70,17 +91,21 @@ export function DraggableImage({
                 : 'hover:ring-1 hover:ring-gray-300'
             }`
       }`}
-      onClick={(e) => {
-        // 确保点击事件优先于拖拽
-        e.preventDefault()
+      onPointerDown={(e) => {
+        // 优化拖拽启动，避免与点击冲突
         e.stopPropagation()
-        console.log('[DEBUG] DraggableImage onClick:', {
-          id,
-          ctrlKey: e.ctrlKey,
-          metaKey: e.metaKey,
-          button: e.button
-        })
-        onSelect(id, e)
+      }}
+      onClick={(e) => {
+        // 只在非拖拽状态下处理点击
+        if (!isDragging) {
+          console.log('[DEBUG] DraggableImage onClick:', {
+            id,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey,
+            button: e.button
+          })
+          onSelect(id, e)
+        }
       }}
       {...listeners}
       {...attributes}
@@ -97,17 +122,39 @@ export function DraggableImage({
         <>
           {/* 工具栏 */}
           <div className="absolute -top-10 left-0 flex gap-1">
-            <Button size="sm" variant="secondary" className="h-6 px-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-6 px-2"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDownloadOriginal(image)
+              }}
+              title="下载高清原图"
+            >
               <Download className="w-3 h-3" />
             </Button>
-            <Button 
-              size="sm" 
-              variant="secondary" 
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-6 px-2"
+              onClick={(e) => {
+                e.stopPropagation()
+                onSaveToLibrary(image)
+              }}
+              title="保存到素材库"
+            >
+              <Archive className="w-3 h-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
               className="h-6 px-2"
               onClick={(e) => {
                 e.stopPropagation()
                 onSave(src)
               }}
+              title="保存图片"
             >
               <Save className="w-3 h-3" />
             </Button>

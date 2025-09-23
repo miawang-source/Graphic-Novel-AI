@@ -69,3 +69,4 @@ start-tunnel*
 # Temporary files
 tmp/
 temp/
+.vercel

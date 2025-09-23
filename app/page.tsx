@@ -45,6 +45,9 @@ import {
   ChevronRight,
   Star,
   Grid3X3,
+  Palette,
+  Trash2,
+  Edit,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -177,6 +180,11 @@ function CharacterPromptsSection({
     type: 'chinese' | 'english' | 'all'
   }>({ character: null, type: 'all' })
 
+  // 删除角色相关状态
+  const [characterToDelete, setCharacterToDelete] = useState<Character | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // 辅助函数：截取前5行文本
   const truncateToLines = (text: string, lines: number = 5) => {
     const textLines = text.split('\n')
@@ -228,6 +236,96 @@ function CharacterPromptsSection({
       }, 2000)
     } catch (err) {
       console.error('复制失败:', err)
+    }
+  }
+
+  // 删除角色处理函数
+  const handleDeleteCharacter = (character: Character, event: React.MouseEvent) => {
+    event.stopPropagation() // 防止触发其他点击事件
+    setCharacterToDelete(character)
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeleteCharacter = async () => {
+    if (!characterToDelete) return
+
+    setIsDeleting(true)
+    try {
+      // 如果角色有ID，说明已保存到数据库，需要从数据库删除
+      if (characterToDelete.id) {
+        const response = await fetch(`/api/characters/${characterToDelete.id}`, {
+          method: 'DELETE',
+        })
+
+        if (!response.ok) {
+          throw new Error('删除失败')
+        }
+
+        const data = await response.json()
+        if (!data.success) {
+          throw new Error(data.error || '删除失败')
+        }
+      }
+
+      // 显示成功提示
+      const toast = document.createElement('div')
+      toast.textContent = '角色删除成功！'
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+      `
+      document.body.appendChild(toast)
+      setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in'
+        setTimeout(() => document.body.removeChild(toast), 300)
+      }, 2000)
+
+      // 从当前角色列表中移除已删除的角色
+      setCharacters(prevCharacters =>
+        prevCharacters.filter(char => {
+          // 如果角色有ID，按ID匹配；如果没有ID，按名称匹配
+          if (characterToDelete.id) {
+            return char.id !== characterToDelete.id
+          } else {
+            return char.name !== characterToDelete.name
+          }
+        })
+      )
+
+    } catch (error) {
+      console.error('Delete error:', error)
+      // 显示错误提示
+      const toast = document.createElement('div')
+      toast.textContent = error instanceof Error ? error.message : '删除失败'
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #ef4444;
+        color: white;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+      `
+      document.body.appendChild(toast)
+      setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-in'
+        setTimeout(() => document.body.removeChild(toast), 300)
+      }, 2000)
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
+      setCharacterToDelete(null)
     }
   }
 
@@ -412,6 +510,15 @@ function CharacterPromptsSection({
                     <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
                       {(character as any).role || (character.role_type === "main" ? "主角" : "配角")}
                     </Badge>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={(e) => handleDeleteCharacter(character, e)}
+                      title="删除角色"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -651,6 +758,52 @@ ${expandedPrompt.character.english_prompt}`
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 删除确认弹窗 */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>确认删除角色</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              您确定要删除角色 "{characterToDelete?.name}" 吗？
+            </p>
+            <p className="text-sm text-red-600">
+              {characterToDelete?.id
+                ? "此操作将永久删除该角色的所有提示词数据，且无法恢复。"
+                : "此操作将从当前列表中移除该角色。"
+              }
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+              >
+                取消
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmDeleteCharacter}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    删除中...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    确认删除
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -691,6 +844,7 @@ export default function ComicProductionTool() {
     { id: "script-analysis", label: "剧本解析", icon: FileText },
     { id: "character-prompts", label: "角色提示词", icon: Users },
     { id: "scene-prompts", label: "场景提示词", icon: ImageIcon },
+    { id: "canvas-generation", label: "画布生图", icon: Palette },
     { id: "material-library", label: "素材库", icon: ImageIcon },
     { id: "material-upload", label: "素材上传", icon: Upload },
   ]
@@ -723,6 +877,8 @@ export default function ComicProductionTool() {
             generatedPrompts={generatedScenePrompts}
           />
         )
+      case "canvas-generation":
+        return <CanvasGenerationSection />
       case "material-library":
         return <MaterialLibrarySection />
       case "material-upload":
@@ -1941,6 +2097,9 @@ function MaterialLibrarySection() {
   const [materials, setMaterials] = useState<any[]>([])
   const [allMaterials, setAllMaterials] = useState<any[]>([]) // 用于计数的所有素材
   const [loading, setLoading] = useState(false)
+  const [materialToDelete, setMaterialToDelete] = useState<any | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const fetchMaterials = async (subcategory?: string) => {
     setLoading(true)
@@ -1982,6 +2141,51 @@ function MaterialLibrarySection() {
       fetchMaterials(newCategory) // 直接传递细分类ID
     } else {
       fetchMaterials() // 不传参数，获取所有素材
+    }
+  }
+
+  const handleDeleteMaterial = async () => {
+    if (!materialToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/materials/${materialToDelete.id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        // 从当前显示的素材列表中移除
+        setMaterials(prev => prev.filter(material => material.id !== materialToDelete.id))
+        // 从所有素材列表中移除（用于计数）
+        setAllMaterials(prev => prev.filter(material => material.id !== materialToDelete.id))
+        setShowDeleteConfirm(false)
+        setMaterialToDelete(null)
+
+        // 显示成功提示
+        const toast = document.createElement('div')
+        toast.textContent = '素材删除成功！'
+        toast.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: #10b981;
+          color: white;
+          padding: 8px 16px;
+          border-radius: 6px;
+          z-index: 9999;
+          font-size: 14px;
+        `
+        document.body.appendChild(toast)
+        setTimeout(() => document.body.removeChild(toast), 3000)
+      } else {
+        console.error('Failed to delete material')
+        alert('删除失败，请重试')
+      }
+    } catch (error) {
+      console.error('Error deleting material:', error)
+      alert('删除失败，请重试')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -2083,8 +2287,21 @@ function MaterialLibrarySection() {
                       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                         <Button
                           size="sm"
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setMaterialToDelete(material)
+                            setShowDeleteConfirm(true)
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+
+                        <Button
+                          size="sm"
                           variant="secondary"
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.stopPropagation()
                             if (material.image_url) {
                               try {
                                 // 获取图片数据
@@ -2120,7 +2337,8 @@ function MaterialLibrarySection() {
                         <Button
                           size="sm"
                           variant="default"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation()
                             // 跳转到画布页面，携带素材信息
                             const params = new URLSearchParams({
                               materialId: material.id,
@@ -2128,8 +2346,9 @@ function MaterialLibrarySection() {
                             })
                             window.open(`/canvas?${params.toString()}`, '_blank')
                           }}
+                          title="前往画布编辑"
                         >
-                          <ImageIcon className="w-3 h-3" />
+                          <Edit className="w-3 h-3" />
                         </Button>
                       </div>
 
@@ -2161,6 +2380,38 @@ function MaterialLibrarySection() {
           )}
         </div>
       </div>
+
+      {/* 删除确认对话框 */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除素材</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>确定要删除素材 "{materialToDelete?.title || materialToDelete?.original_filename || '未命名素材'}" 吗？</p>
+            <p className="text-sm text-muted-foreground">此操作无法撤销。</p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteConfirm(false)
+                  setMaterialToDelete(null)
+                }}
+                disabled={isDeleting}
+              >
+                取消
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteMaterial}
+                disabled={isDeleting}
+              >
+                {isDeleting ? '删除中...' : '确认删除'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -2528,6 +2779,118 @@ function MaterialUploadSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function CanvasGenerationSection() {
+  return (
+    <div className="p-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold mb-4">画布生图工具</h1>
+          <p className="text-muted-foreground text-lg">
+            拖拽素材到画布，组合创作，一键生成精美图片
+          </p>
+        </div>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="w-5 h-5" />
+              进入画布工作区
+            </CardTitle>
+            <CardDescription>
+              在画布中自由组合角色和场景素材，创作独特的漫画场景
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h3 className="font-semibold">功能特色</h3>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• 拖拽式操作，直观易用</li>
+                    <li>• 多图层管理，精确控制</li>
+                    <li>• 实时预览，所见即所得</li>
+                    <li>• 一键导出高清图片</li>
+                  </ul>
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold">支持素材</h3>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• 角色素材（古代、现代、架空）</li>
+                    <li>• 场景背景（住宅、场所、自然）</li>
+                    <li>• 自定义上传的图片素材</li>
+                    <li>• AI生成的角色和场景</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t">
+                <Button
+                  size="lg"
+                  className="w-full md:w-auto"
+                  onClick={() => {
+                    // 在新标签页中打开画布页面
+                    window.open('/canvas', '_blank')
+                  }}
+                >
+                  <Palette className="w-4 h-4 mr-2" />
+                  打开画布工作区
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">快速开始</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <ol className="space-y-2">
+                <li>1. 点击"打开画布工作区"</li>
+                <li>2. 从素材库选择图片</li>
+                <li>3. 拖拽到画布中</li>
+                <li>4. 调整位置和大小</li>
+                <li>5. 导出最终作品</li>
+              </ol>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">操作技巧</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <ul className="space-y-2">
+                <li>• 按住Shift多选图片</li>
+                <li>• 拖拽边角调整大小</li>
+                <li>• 右键菜单更多选项</li>
+                <li>• Ctrl+Z撤销操作</li>
+                <li>• 双击图片查看详情</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">导出选项</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <ul className="space-y-2">
+                <li>• PNG格式（透明背景）</li>
+                <li>• JPG格式（压缩优化）</li>
+                <li>• 自定义分辨率</li>
+                <li>• 高清质量输出</li>
+                <li>• 批量导出支持</li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
