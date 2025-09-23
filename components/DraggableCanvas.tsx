@@ -153,12 +153,6 @@ export function DraggableCanvas({
       onDragStart={handleDragStart}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
-      // 添加测量配置以确保拖拽在缩放画布上正常工作
-      measuring={{
-        droppable: {
-          strategy: 'always' as const,
-        },
-      }}
     >
       <div
         className="relative"
