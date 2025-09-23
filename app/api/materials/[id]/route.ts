@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
 
 export async function DELETE(
@@ -9,18 +8,12 @@ export async function DELETE(
   try {
     const { id } = params
 
-    // 尝试使用 service role key，如果不存在则使用普通客户端
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-
-    let supabase
-    if (serviceRoleKey) {
-      // 生产环境：使用 service role key
-      supabase = createClient(supabaseUrl, serviceRoleKey)
-    } else {
-      // 开发环境：使用普通客户端
-      supabase = createServerClient()
-    }
+    // 使用 service role key（如果可用），否则使用 anon key
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      supabaseKey
+    )
 
     // 首先获取素材信息，包括图片URL
     const { data: material, error: fetchError } = await supabase
