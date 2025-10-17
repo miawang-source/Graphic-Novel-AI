@@ -464,6 +464,8 @@ function buildUserPrompt(character: any) {
 
 // 从AI响应中解析提示词
 function parseAIResponse(aiResponse: string, characterName: string) {
+  console.log(`[DEBUG] Raw AI response for ${characterName}:`, aiResponse.substring(0, 500))
+
   // 提取完整的中文提示词（包含服装版本）
   let chinesePrompt = ""
 
@@ -471,6 +473,7 @@ function parseAIResponse(aiResponse: string, characterName: string) {
   const chineseSection = aiResponse.match(/中文提示词[：:]\s*\n?([\s\S]*?)(?=英文提示词|$)/i)
   if (chineseSection) {
     chinesePrompt = chineseSection[1].trim()
+    console.log(`[DEBUG] Chinese section found, length: ${chinesePrompt.length}`)
     // 清理多余的空行，保持服装版本的格式
     chinesePrompt = chinesePrompt.replace(/(\*\*服装版本[：:]\*\*)\s*\n\s*(\*\*版本)/g, '$1\n$2')
     chinesePrompt = chinesePrompt.replace(/\n\s*\n/g, '\n')
@@ -483,10 +486,12 @@ function parseAIResponse(aiResponse: string, characterName: string) {
     chinesePrompt = chinesePrompt.replace(/^漫画风格[，,]\s*[^，,]+[，,]\s*/i, '')
     chinesePrompt = chinesePrompt.replace(/^manga style[,，]\s*[^,，]+[,，]\s*/i, '')
   } else {
+    console.log(`[DEBUG] Chinese section NOT found, trying fallback`)
     // 备用方案：只提取第一行基础描述，但去掉前缀
     const chineseMatch = aiResponse.match(/中文提示词[：:]\s*\n?([^\n*]+)/i)
     if (chineseMatch) {
       let prompt = chineseMatch[1].trim()
+      console.log(`[DEBUG] Fallback Chinese match found: ${prompt}`)
       // 移除"漫画风格，角色名，"前缀
       prompt = prompt.replace(/^漫画风格[，,]\s*[^，,]+[，,]\s*/i, '')
       chinesePrompt = prompt
