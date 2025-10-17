@@ -830,11 +830,11 @@ function formatDescription(description: any): string {
 function FormattedDescription({ text }: { text: string }) {
   if (!text) return <p className="text-sm text-muted-foreground">暂无描述</p>
 
-  // 按照【】标记分割文本
+  // 首先，按照【】标记分割文本
   const parts = text.split(/(?=【)|(?<=】)/)
 
   return (
-    <div className="space-y-2 text-sm">
+    <div className="space-y-3 text-sm">
       {parts.map((part, index) => {
         if (!part.trim()) return null
 
@@ -846,23 +846,41 @@ function FormattedDescription({ text }: { text: string }) {
           const content = part.replace(/【[^】]+】/, '').trim()
 
           return (
-            <div key={index} className="space-y-1">
-              <div className="font-medium text-foreground">【{title}】</div>
+            <div key={index} className="space-y-2">
+              <div className="font-semibold text-foreground text-base">【{title}】</div>
               {content && (
-                <p className="text-muted-foreground leading-relaxed pl-2 border-l-2 border-muted">
-                  {content}
-                </p>
+                <div className="text-muted-foreground leading-relaxed pl-3 border-l-3 border-primary/30 space-y-2">
+                  {/* 按换行符分割内容，保留段落结构 */}
+                  {content.split(/\n+/).map((line, lineIndex) => {
+                    const trimmedLine = line.trim()
+                    if (!trimmedLine) return null
+                    return (
+                      <p key={lineIndex} className="text-sm">
+                        {trimmedLine}
+                      </p>
+                    )
+                  })}
+                </div>
               )}
             </div>
           )
         }
 
-        // 如果没有标题标记，直接显示为段落
+        // 如果没有标题标记，按换行符分割并显示为多个段落
         if (part.trim()) {
+          const lines = part.trim().split(/\n+/)
           return (
-            <p key={index} className="text-muted-foreground leading-relaxed">
-              {part.trim()}
-            </p>
+            <div key={index} className="space-y-2">
+              {lines.map((line, lineIndex) => {
+                const trimmedLine = line.trim()
+                if (!trimmedLine) return null
+                return (
+                  <p key={lineIndex} className="text-muted-foreground leading-relaxed text-sm">
+                    {trimmedLine}
+                  </p>
+                )
+              })}
+            </div>
           )
         }
 
