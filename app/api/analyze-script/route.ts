@@ -39,14 +39,14 @@ export async function POST(request: NextRequest) {
 
     // 模型配置
     const modelConfigs = {
-      'anthropic/claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', contextLength: 200000 },
-      'google/gemini-2.5-pro': { name: 'Google Gemini 2.5 Pro', contextLength: 1000000 },
-      'google/gemini-2.5-pro-exp-03-25': { name: 'Google Gemini 2.5 Pro Experimental', contextLength: 1000000 }
+      'x-ai/grok-4-fast': { name: 'Grok 4 Fast', contextLength: 2000000 },
+      'google/gemini-pro-1.5': { name: 'Google Gemini 1.5 Pro', contextLength: 2000000 },
+      'google/gemini-2.0-flash-lite-001': { name: 'Google Gemini 2.0 Flash Lite', contextLength: 1000000 }
     }
 
     // 确保有有效的模型选择 - 强制使用默认模型
-    const finalSelectedModel = (modelParam && modelParam.trim()) ? modelParam : 'anthropic/claude-3.5-sonnet'
-    const modelConfig = modelConfigs[finalSelectedModel as keyof typeof modelConfigs] || modelConfigs['anthropic/claude-3.5-sonnet']
+    const finalSelectedModel = (modelParam && modelParam.trim()) ? modelParam : 'x-ai/grok-4-fast'
+    const modelConfig = modelConfigs[finalSelectedModel as keyof typeof modelConfigs] || modelConfigs['x-ai/grok-4-fast']
 
     console.log("[DEBUG] Model selection:", {
       originalSelectedModel: selectedModel,
