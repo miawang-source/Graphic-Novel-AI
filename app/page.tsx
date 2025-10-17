@@ -1658,18 +1658,28 @@ function ScriptAnalysisSection({
                       <Badge variant="secondary">{character.role_type === "main" ? "主角" : "配角"}</Badge>
                     </div>
                     {editingCharacter === i ? (
-                      <div className="space-y-3">
+                      <div className="space-y-4 flex flex-col h-full">
                         <Textarea
                           value={editingDescription}
                           onChange={(e) => setEditingDescription(e.target.value)}
-                          rows={3}
-                          className="text-sm"
+                          rows={10}
+                          className="text-sm flex-1 resize-none"
+                          placeholder="编辑角色描述..."
                         />
-                        <div className="flex space-x-2">
-                          <Button size="sm" onClick={() => handleSaveCharacter(i)}>
+                        <div className="flex space-x-2 pt-2 border-t">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveCharacter(i)}
+                            className="flex-1"
+                          >
                             保存
                           </Button>
-                          <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancelEdit}
+                            className="flex-1"
+                          >
                             取消
                           </Button>
                         </div>
@@ -1716,18 +1726,28 @@ function ScriptAnalysisSection({
                   <div key={i} className="p-4 border border-border rounded-lg">
                     <h4 className="font-medium mb-2">{scene.name}</h4>
                     {editingScene === i ? (
-                      <div className="space-y-3">
+                      <div className="space-y-4 flex flex-col h-full">
                         <Textarea
                           value={editingDescription}
                           onChange={(e) => setEditingDescription(e.target.value)}
-                          rows={3}
-                          className="text-sm"
+                          rows={10}
+                          className="text-sm flex-1 resize-none"
+                          placeholder="编辑场景描述..."
                         />
-                        <div className="flex space-x-2">
-                          <Button size="sm" onClick={() => handleSaveScene(i)}>
+                        <div className="flex space-x-2 pt-2 border-t">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveScene(i)}
+                            className="flex-1"
+                          >
                             保存
                           </Button>
-                          <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancelEdit}
+                            className="flex-1"
+                          >
                             取消
                           </Button>
                         </div>
