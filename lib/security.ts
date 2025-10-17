@@ -32,7 +32,7 @@ export const SECURITY_HEADERS = {
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js 需要 unsafe-inline 和 unsafe-eval
     "style-src 'self' 'unsafe-inline'", // Tailwind CSS 需要 unsafe-inline
-    "img-src 'self' data: https:",
+    "img-src 'self' data: blob: https:", // 添加 blob: 支持图片预览
     "font-src 'self' data:",
     "connect-src 'self' https://gyafalegiojqnzyfasvb.supabase.co https://openrouter.ai",
     "frame-src 'none'",
