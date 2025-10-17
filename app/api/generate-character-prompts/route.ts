@@ -1070,6 +1070,13 @@ export async function POST(request: NextRequest) {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}))
+          console.error("[ERROR] OpenRouter API failed for " + character.name + ":", {
+            status: response.status,
+            statusText: response.statusText,
+            errorData: errorData,
+            hasApiKey: !!OPENROUTER_API_KEY,
+            apiKeyPrefix: OPENROUTER_API_KEY ? OPENROUTER_API_KEY.substring(0, 10) + "..." : "undefined"
+          })
           const errorMessage = handleOpenRouterError(response, errorData)
           throw new Error(errorMessage)
         }
@@ -1150,13 +1157,14 @@ export async function POST(request: NextRequest) {
         })
       } catch (error) {
         console.error("Error generating prompt for " + character.name + ":", error)
+        const errorMessage = error instanceof Error ? error.message : String(error)
         generatedPrompts.push({
           name: character.name,
           role_type: character.role_type,
           description: character.description,
           chinese_prompt: "漫画风格，" + character.name + "，动漫角色",
           english_prompt: character.name + ", anime style, high quality",
-          ai_response: "生成失败，请重试",
+          ai_response: "生成失败：" + errorMessage + "\n\n请检查 Vercel 环境变量中的 OPENROUTER_API_KEY 是否配置正确。",
           matchedMaterial: null,
           candidateMaterials: [],
         })
