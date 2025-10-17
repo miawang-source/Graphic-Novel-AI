@@ -2717,7 +2717,32 @@ function MaterialUploadSection() {
             </Select>
           </div>
 
-          <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+          <div
+            className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors"
+            onDragOver={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              if (isAnalyzing || !selectedCategory) return
+
+              const files = e.dataTransfer.files
+              if (files && files.length > 0) {
+                const file = files[0]
+                if (file.type.startsWith('image/')) {
+                  // 模拟文件选择事件
+                  const event = {
+                    target: {
+                      files: [file]
+                    }
+                  } as any
+                  handleFileSelect(event)
+                }
+              }
+            }}
+          >
             <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-lg font-medium mb-2">拖拽图片到此处或点击上传</p>
             <p className="text-sm text-muted-foreground mb-4">支持 .jpg, .png, .webp 格式</p>
@@ -2738,8 +2763,16 @@ function MaterialUploadSection() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {uploadedImage && (
                 <div className="flex items-center space-x-4 p-4 border border-border rounded-lg">
-                  <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                    <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                  <div className="w-16 h-16 bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+                    {uploadedImage.previewUrl ? (
+                      <img
+                        src={uploadedImage.previewUrl}
+                        alt={uploadedImage.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                    )}
                   </div>
                   <div>
                     <h4 className="font-medium">{uploadedImage.name}</h4>
