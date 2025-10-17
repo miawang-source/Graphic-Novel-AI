@@ -2589,6 +2589,7 @@ function MaterialUploadSection() {
       if (data.success && data.analysis) {
         // 创建图片预览URL
         const previewUrl = URL.createObjectURL(file)
+        console.log("[DEBUG] Created preview URL:", previewUrl)
 
         const analysis = {
           name: file.name,
@@ -2598,6 +2599,12 @@ function MaterialUploadSection() {
           file: file, // 保存文件对象，用于后续上传
           previewUrl: previewUrl, // 添加预览URL
         }
+
+        console.log("[DEBUG] Analysis object:", {
+          name: analysis.name,
+          hasPreviewUrl: !!analysis.previewUrl,
+          previewUrl: analysis.previewUrl
+        })
 
         setUploadedImage(analysis)
         setEditableTags(analysis.tags.join(", "))
@@ -2823,6 +2830,13 @@ function MaterialUploadSection() {
                     src={uploadedImage.previewUrl}
                     alt={uploadedImage.name}
                     className="w-full h-full object-cover"
+                    onLoad={() => console.log("[DEBUG] Image loaded successfully")}
+                    onError={(e) => {
+                      console.error("[DEBUG] Image failed to load:", {
+                        src: uploadedImage.previewUrl,
+                        error: e
+                      })
+                    }}
                   />
                 ) : (
                   <ImageIcon className="w-8 h-8 text-muted-foreground" />
