@@ -826,6 +826,52 @@ function formatDescription(description: any): string {
   return String(description) || "暂无描述"
 }
 
+// 格式化描述文本为结构化的 JSX 组件
+function FormattedDescription({ text }: { text: string }) {
+  if (!text) return <p className="text-sm text-muted-foreground">暂无描述</p>
+
+  // 按照【】标记分割文本
+  const parts = text.split(/(?=【)|(?<=】)/)
+
+  return (
+    <div className="space-y-2 text-sm">
+      {parts.map((part, index) => {
+        if (!part.trim()) return null
+
+        // 检查是否是标题（包含【】）
+        const titleMatch = part.match(/【([^】]+)】/)
+
+        if (titleMatch) {
+          const title = titleMatch[1]
+          const content = part.replace(/【[^】]+】/, '').trim()
+
+          return (
+            <div key={index} className="space-y-1">
+              <div className="font-medium text-foreground">【{title}】</div>
+              {content && (
+                <p className="text-muted-foreground leading-relaxed pl-2 border-l-2 border-muted">
+                  {content}
+                </p>
+              )}
+            </div>
+          )
+        }
+
+        // 如果没有标题标记，直接显示为段落
+        if (part.trim()) {
+          return (
+            <p key={index} className="text-muted-foreground leading-relaxed">
+              {part.trim()}
+            </p>
+          )
+        }
+
+        return null
+      })}
+    </div>
+  )
+}
+
 export default function ComicProductionTool() {
   const [activeSection, setActiveSection] = useState("script-analysis")
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -1612,9 +1658,9 @@ function ScriptAnalysisSection({
                       </div>
                     ) : (
                       <>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {formatDescription(character.description)}
-                        </p>
+                        <div className="mb-3 max-h-64 overflow-y-auto">
+                          <FormattedDescription text={character.description} />
+                        </div>
                         <Button
                           size="sm"
                           variant="outline"
@@ -1670,7 +1716,9 @@ function ScriptAnalysisSection({
                       </div>
                     ) : (
                       <>
-                        <p className="text-sm text-muted-foreground mb-3">{formatDescription(scene.description)}</p>
+                        <div className="mb-3 max-h-64 overflow-y-auto">
+                          <FormattedDescription text={scene.description} />
+                        </div>
                         <Button
                           size="sm"
                           variant="outline"
