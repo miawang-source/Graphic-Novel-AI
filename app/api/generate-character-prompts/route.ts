@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase"
 import { handleOpenRouterError, validateOpenRouterKey } from "@/lib/api-utils"
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
-const MODEL = "google/gemini-flash-1.5"
+const MODEL = "google/gemini-2.5-flash-lite-preview-09-2025"
 
 // 解析角色描述，提取关键信息
 function parseCharacterDescription(description: string) {
