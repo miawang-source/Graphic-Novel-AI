@@ -10,15 +10,6 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60 // 最大执行时间 60 秒（Pro 计划）
 
-// 配置请求体大小限制（默认 4.5MB）
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '4mb', // 设置为 4MB，留一些余量
-    },
-  },
-}
-
 // 预热函数，减少冷启动延迟
 // 诊断 API：用于检查环境变量配置
 export async function GET() {
