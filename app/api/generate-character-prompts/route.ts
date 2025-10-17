@@ -477,24 +477,14 @@ function parseAIResponse(aiResponse: string, characterName: string) {
     // 清理多余的空行，保持服装版本的格式
     chinesePrompt = chinesePrompt.replace(/(\*\*服装版本[：:]\*\*)\s*\n\s*(\*\*版本)/g, '$1\n$2')
     chinesePrompt = chinesePrompt.replace(/\n\s*\n/g, '\n')
-
-    // 移除占位符文本
-    chinesePrompt = chinesePrompt.replace(/\[服装描述\]/g, '')
-    chinesePrompt = chinesePrompt.replace(/\[用户提供的服装\d*描述\]/g, '')
-
-    // 移除不需要的前缀：漫画风格，角色名
-    chinesePrompt = chinesePrompt.replace(/^漫画风格[，,]\s*[^，,]+[，,]\s*/i, '')
-    chinesePrompt = chinesePrompt.replace(/^manga style[,，]\s*[^,，]+[,，]\s*/i, '')
   } else {
     console.log(`[DEBUG] Chinese section NOT found, trying fallback`)
-    // 备用方案：只提取第一行基础描述，但去掉前缀
-    const chineseMatch = aiResponse.match(/中文提示词[：:]\s*\n?([^\n*]+)/i)
+    // 备用方案：只提取第一行基础描述
+    const chineseMatch = aiResponse.match(/中文提示词[：:]\s*\n?([^\n*]+)/i) ||
+                        aiResponse.match(/漫画风格[，,]([^\n*]+)/i)
     if (chineseMatch) {
-      let prompt = chineseMatch[1].trim()
-      console.log(`[DEBUG] Fallback Chinese match found: ${prompt}`)
-      // 移除"漫画风格，角色名，"前缀
-      prompt = prompt.replace(/^漫画风格[，,]\s*[^，,]+[，,]\s*/i, '')
-      chinesePrompt = prompt
+      chinesePrompt = chineseMatch[1].trim()
+      console.log(`[DEBUG] Fallback Chinese match found: ${chinesePrompt}`)
     }
   }
 
@@ -508,21 +498,13 @@ function parseAIResponse(aiResponse: string, characterName: string) {
     // 清理多余的空行，保持服装版本的格式
     englishPrompt = englishPrompt.replace(/(\*\*Outfit Versions[：:]\*\*)\s*\n\s*\n/g, '$1\n')
     englishPrompt = englishPrompt.replace(/\n\s*\n/g, '\n')
-
-    // 移除占位符文本
-    englishPrompt = englishPrompt.replace(/\[user provided outfit \d* description\]/g, '')
-    englishPrompt = englishPrompt.replace(/\[outfit description\]/g, '')
-
-    // 移除不需要的前缀：manga style, character name
-    englishPrompt = englishPrompt.replace(/^manga style[,，]\s*[^,，]+[,，]\s*/i, '')
   } else {
-    // 备用方案：只提取第一行基础描述，但去掉前缀
-    const englishMatch = aiResponse.match(/英文提示词[：:]\s*\n?([^\n*]+)/i)
+    // 备用方案：只提取第一行基础描述
+    const englishMatch = aiResponse.match(/英文提示词[：:]\s*\n?([^\n*]+)/i) ||
+                        aiResponse.match(/manga style[,，]([^\n*]+)/i)
     if (englishMatch) {
-      let prompt = englishMatch[1].trim()
-      // 移除"manga style, character name,"前缀
-      prompt = prompt.replace(/^manga style[,，]\s*[^,，]+[,，]\s*/i, '')
-      englishPrompt = prompt
+      englishPrompt = englishMatch[1].trim()
+      console.log(`[DEBUG] Fallback English match found: ${englishPrompt}`)
     }
   }
 
@@ -1010,40 +992,35 @@ async function findMultipleMatchingMaterials(promptData: any, supabase: any, lim
   }
 }
 
-const ART_PROMPT_SYSTEM = `你是一个专业的AI美术提示词生成器，专门为AI绘图平台（如Midjourney、Stable Diffusion、可灵、即梦等）生成高质量的角色绘画提示词。你的任务是将角色描述转换为精确、详细的美术指令，供AI模型生成漫画风格的角色插画。
+const ART_PROMPT_SYSTEM = `你是一个专业的AI美术角色提示词生成器，专门为lora、可灵、即梦、nano banana等AI绘图平台生成简洁有效的漫画风格提示词。
 
-🎨 **美术生图核心要求**：
-1. **详细外貌描述**：必须包含所有关键视觉元素 - 发型发色、眼睛特征、面部轮廓、身材体型、肌肤特点
-2. **精确服装描述**：颜色、材质、款式、细节装饰，确保AI能准确理解并绘制
-3. **漫画风格定位**：专注于anime/manga风格，避免写实、照片、3D风格
-4. **时代背景明确**：古代/现代设定影响服装和整体画风
-5. **角色气质表达**：通过外貌和服装体现性格特质
+核心要求：
+1. 必须使用提供的角色信息：严格基于用户提供的角色特征（性别、年龄、外貌、性格等）生成提示词
+2. 详细完整：提示词要包含所有关键外貌特征，重点突出人物特征和服装特征
+3. 漫画风格：专注于漫画、动漫风格，避免写实、照片、3D风格
+4. 核心要素：人物特征（性别、年龄、发型、眼睛、身材、面部特征）+ 服装特征（颜色、风格、材质）
+5. 服装版本：使用用户提供的确切服装描述，不要自己编造
+6. 时代背景：必须在角色描述中明确标注时代背景（古代/现代），例如：
+   - 古代角色："一个古代中国的美丽女子" "古代贵族" "古代仕女"
+   - 现代角色："一个现代都市女性" "现代商务男士" "年轻的现代女孩"
 
-📋 **服装处理规则**：
-- 如果提供了具体服装描述，严格使用原描述
-- 如果没有服装信息，根据角色身份、性别、年龄、性格智能生成合适的服装
-- 服装版本数量灵活：有几套展示几套，不强制要求3套
-- 每套服装都要有具体的颜色、材质、款式描述
-
-🖼️ **输出格式**（严格遵循）：
+输出格式（必须严格遵循，保持与示例一致）：
 
 中文提示词：
-[古代/现代][性别]，[年龄]，[详细外貌特征：发型发色+眼睛+面部+身材+肌肤]，[性格特质]，漫画风格
+漫画风格，角色名，[古代/现代][性别]，[年龄]，[详细外貌特征]，[性格特质]
 
 **服装版本：**
-**版本1：** [具体服装描述：颜色+材质+款式+细节]
-**版本2：** [具体服装描述：颜色+材质+款式+细节]
-（根据实际服装数量展示，可以是1-3个版本）
+**版本1：** [用户提供的服装描述]
+**版本2：** [用户提供的服装描述]
+**版本3：** [用户提供的服装描述]
 
 英文提示词：
-[ancient/modern] [gender], [age], [detailed appearance: hair+eyes+face+body+skin], [personality traits], manga style
+manga style, character name, [ancient/modern] [gender], [age], [detailed appearance], [personality traits]
 
 **Outfit Versions:**
-**Version 1:** [specific outfit description: color+material+style+details]
-**Version 2:** [specific outfit description: color+material+style+details]
-（根据实际服装数量展示，可以是1-3个版本）
-
-⚠️ **重要提醒**：这些提示词将直接用于AI绘图，必须足够详细和准确，让AI能够生成高质量的角色插画。`
+**Version 1:** [user provided outfit 1 description]
+**Version 2:** [user provided outfit 2 description]
+**Version 3:** [user provided outfit 3 description]`
 
 export async function POST(request: NextRequest) {
   try {
