@@ -1049,8 +1049,10 @@ export async function POST(request: NextRequest) {
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            "Authorization": "Bearer " + OPENROUTER_API_KEY,
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://v0.dev",
+            "X-Title": "Comic Production Tool",
           },
           body: JSON.stringify({
             model: MODEL,
