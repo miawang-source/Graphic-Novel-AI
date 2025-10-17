@@ -521,14 +521,24 @@ function parseAIResponse(aiResponse: string, characterName: string) {
     }
   }
 
-  // 验证和清理最终结果
-  if (!chinesePrompt || chinesePrompt.includes('[') || chinesePrompt.length < 5) {
-    chinesePrompt = `古代女性，年轻，详细外貌特征，个性鲜明，漫画风格`
+  // 验证和清理最终结果 - 只在完全为空时才使用默认值
+  if (!chinesePrompt || chinesePrompt.trim().length === 0) {
+    console.warn(`[WARNING] Chinese prompt is empty for ${characterName}, using fallback`)
+    chinesePrompt = `漫画风格，${characterName}，详细外貌特征，个性鲜明`
   }
 
-  if (!englishPrompt || englishPrompt.includes('[') || englishPrompt.length < 5) {
-    englishPrompt = `ancient female, young, detailed appearance, distinctive personality, manga style`
+  if (!englishPrompt || englishPrompt.trim().length === 0) {
+    console.warn(`[WARNING] English prompt is empty for ${characterName}, using fallback`)
+    englishPrompt = `manga style, ${characterName}, detailed appearance, distinctive personality`
   }
+
+  // 记录提示词长度用于调试
+  console.log(`[DEBUG] Final prompts for ${characterName}:`, {
+    chineseLength: chinesePrompt.length,
+    englishLength: englishPrompt.length,
+    chinesePreview: chinesePrompt.substring(0, 100),
+    englishPreview: englishPrompt.substring(0, 100)
+  })
 
   return {
     chinese_prompt: chinesePrompt,
@@ -1003,6 +1013,7 @@ const ART_PROMPT_SYSTEM = `你是一个专业的AI美术提示词生成器，专
 3. **漫画风格定位**：专注于anime/manga风格，避免写实、照片、3D风格
 4. **时代背景明确**：古代/现代设定影响服装和整体画风
 5. **角色气质表达**：通过外貌和服装体现性格特质
+6. **提示词要足够详细**：包含所有提供的信息，不要简化
 
 📋 **服装处理规则**：
 - 如果提供了具体服装描述，严格使用原描述
@@ -1013,7 +1024,7 @@ const ART_PROMPT_SYSTEM = `你是一个专业的AI美术提示词生成器，专
 🖼️ **输出格式**（严格遵循）：
 
 中文提示词：
-[古代/现代][性别]，[年龄]，[详细外貌特征：发型发色+眼睛+面部+身材+肌肤]，[性格特质]，漫画风格
+漫画风格，[角色名]，[古代/现代][性别]，[年龄]，[详细外貌特征：发型发色+眼睛+面部+身材+肌肤]，[性格特质]
 
 **服装版本：**
 **版本1：** [具体服装描述：颜色+材质+款式+细节]
@@ -1021,7 +1032,7 @@ const ART_PROMPT_SYSTEM = `你是一个专业的AI美术提示词生成器，专
 （根据实际服装数量展示，可以是1-3个版本）
 
 英文提示词：
-[ancient/modern] [gender], [age], [detailed appearance: hair+eyes+face+body+skin], [personality traits], manga style
+manga style, [character name], [ancient/modern] [gender], [age], [detailed appearance: hair+eyes+face+body+skin], [personality traits]
 
 **Outfit Versions:**
 **Version 1:** [specific outfit description: color+material+style+details]
