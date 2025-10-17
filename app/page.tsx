@@ -59,6 +59,7 @@ interface Character {
   tags: string[]
   chinese_prompt: string
   english_prompt: string
+  ai_response?: string
   matchedMaterial?: Material
   candidateMaterials?: Material[]
 }
@@ -753,6 +754,26 @@ ${expandedPrompt.character.english_prompt}`
                 </div>
               </div>
 
+              {/* AI 原始响应 */}
+              {expandedPrompt.character.ai_response && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-sm text-orange-600">AI 原始响应（调试用）</h3>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(expandedPrompt.character!.ai_response || '')}
+                    >
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="text-xs font-mono leading-relaxed whitespace-pre-wrap text-orange-900">
+                      {expandedPrompt.character.ai_response}
+                    </div>
+                  </div>
+                </div>
+              )}
 
             </div>
           )}
