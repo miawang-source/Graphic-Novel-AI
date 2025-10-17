@@ -996,24 +996,24 @@ function ScriptAnalysisSection({
 
   const availableModels = [
     {
-      id: "google/gemini-flash-1.5",
-      name: "Google Gemini Flash 1.5 (免费)",
-      description: "1M tokens - 快速智能模型，免费使用",
-      contextLength: "1M tokens",
-      isFree: true
+      id: "x-ai/grok-4-fast",
+      name: "Grok 4 Fast (推荐)",
+      description: "2M tokens - 超大上下文，最适合长文本",
+      contextLength: "2M tokens",
+      isFree: false
     },
     {
       id: "google/gemini-pro-1.5",
-      name: "Google Gemini 1.5 Pro (付费)",
+      name: "Google Gemini 1.5 Pro",
       description: "2M tokens - 多模态模型，支持图像",
       contextLength: "2M tokens",
       isFree: false
     },
     {
-      id: "anthropic/claude-3.5-sonnet",
-      name: "Claude 3.5 Sonnet (付费)",
-      description: "200K tokens - 高质量文本分析",
-      contextLength: "200K tokens",
+      id: "google/gemini-2.0-flash-lite-001",
+      name: "Google Gemini 2.0 Flash Lite",
+      description: "1M tokens - 快速轻量级模型",
+      contextLength: "1M tokens",
       isFree: false
     }
   ]
