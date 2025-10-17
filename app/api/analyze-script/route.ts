@@ -20,6 +20,7 @@ export const config = {
 }
 
 // 预热函数，减少冷启动延迟
+// 诊断 API：用于检查环境变量配置
 export async function GET() {
   const apiKey = process.env.OPENROUTER_API_KEY
   const isValid = validateOpenRouterKey(apiKey)
@@ -27,7 +28,7 @@ export async function GET() {
   return NextResponse.json({
     status: "ready",
     timestamp: new Date().toISOString(),
-    message: "Analyze script API is ready",
+    message: "Analyze script API is ready - v2.0",
     env: {
       hasApiKey: !!apiKey,
       apiKeyPrefix: apiKey?.substring(0, 12) || 'not-set',

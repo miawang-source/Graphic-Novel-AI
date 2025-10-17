@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试剧本分析 API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        button {
+            background: #0070f3;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0051cc;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            border-left: 4px solid #0070f3;
+        }
+        .error {
+            border-left-color: #ff0000;
+            background: #fff5f5;
+        }
+        .success {
+            border-left-color: #00cc00;
+            background: #f5fff5;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #0070f3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 测试剧本分析 API</h1>
+        
+        <div class="input-group">
+            <label for="apiUrl">API 地址：</label>
+            <input type="text" id="apiUrl" placeholder="https://你的域名.vercel.app/api/analyze-script">
+        </div>
+
+        <div class="input-group">
+            <label for="scriptContent">剧本内容：</label>
+            <textarea id="scriptContent" placeholder="输入剧本内容...">这是一个测试剧本。主角小明走进了房间，看到了一个神秘的盒子。</textarea>
+        </div>
+
+        <button onclick="testDiagnostic()">1. 测试诊断 API (GET)</button>
+        <button onclick="testAnalyze()">2. 测试剧本分析 (POST)</button>
+        <button onclick="clearResult()">清除结果</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function getApiUrl() {
+            const url = document.getElementById('apiUrl').value.trim();
+            if (!url) {
+                alert('请输入 API 地址');
+                return null;
+            }
+            return url;
+        }
+
+        async function testDiagnostic() {
+            const apiUrl = getApiUrl();
+            if (!apiUrl) return;
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="result">正在测试诊断 API...<span class="loading"></span></div>';
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'GET'
+                });
+
+                const data = await response.json();
+
+                let html = '<div class="result success">';
+                html += '<h3>✅ 诊断 API 响应成功</h3>';
+                html += '<p><strong>Status Code:</strong> ' + response.status + '</p>';
+                html += '<p><strong>响应数据:</strong></p>';
+                html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+
+                if (data.env) {
+                    html += '<h4>🔑 环境变量检查：</h4>';
+                    html += '<ul>';
+                    html += '<li><strong>hasApiKey:</strong> ' + (data.env.hasApiKey ? '✅ 是' : '❌ 否') + '</li>';
+                    html += '<li><strong>isValidFormat:</strong> ' + (data.env.isValidFormat ? '✅ 是' : '❌ 否') + '</li>';
+                    html += '<li><strong>hasWhitespace:</strong> ' + (data.env.hasWhitespace ? '⚠️ 是（有问题！）' : '✅ 否') + '</li>';
+                    html += '<li><strong>apiKeyLength:</strong> ' + data.env.apiKeyLength + '</li>';
+                    html += '<li><strong>trimmedLength:</strong> ' + data.env.trimmedLength + '</li>';
+                    html += '</ul>';
+
+                    if (!data.env.isValidFormat) {
+                        html += '<p style="color: red; font-weight: bold;">⚠️ API 密钥格式无效！这就是剧本分析失败的原因。</p>';
+                    }
+                    if (data.env.hasWhitespace) {
+                        html += '<p style="color: orange; font-weight: bold;">⚠️ API 密钥包含空格或换行符！需要在 Vercel 重新配置。</p>';
+                    }
+                } else {
+                    html += '<p style="color: orange;">⚠️ 响应中没有 env 字段，可能是旧版本代码。</p>';
+                }
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="result error">' +
+                    '<h3>❌ 诊断 API 请求失败</h3>' +
+                    '<p><strong>错误信息:</strong> ' + error.message + '</p>' +
+                    '</div>';
+            }
+        }
+
+        async function testAnalyze() {
+            const apiUrl = getApiUrl();
+            if (!apiUrl) return;
+
+            const content = document.getElementById('scriptContent').value.trim();
+            if (!content) {
+                alert('请输入剧本内容');
+                return;
+            }
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="result">正在测试剧本分析...<span class="loading"></span></div>';
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        title: '测试剧本',
+                        selectedModel: 'gemini-2.0-flash-exp'
+                    })
+                });
+
+                const data = await response.json();
+
+                let html = '';
+                if (response.ok) {
+                    html = '<div class="result success">';
+                    html += '<h3>✅ 剧本分析成功！</h3>';
+                    html += '<p><strong>Status Code:</strong> ' + response.status + '</p>';
+                    html += '<p><strong>响应数据:</strong></p>';
+                    html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    html += '</div>';
+                } else {
+                    html = '<div class="result error">';
+                    html += '<h3>❌ 剧本分析失败</h3>';
+                    html += '<p><strong>Status Code:</strong> ' + response.status + '</p>';
+                    html += '<p><strong>错误信息:</strong> ' + (data.error || '未知错误') + '</p>';
+                    html += '<p><strong>完整响应:</strong></p>';
+                    html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+
+                    if (response.status === 500 && data.error && data.error.includes('API密钥')) {
+                        html += '<p style="color: red; font-weight: bold;">⚠️ 这是 API 密钥配置问题！请检查 Vercel 环境变量。</p>';
+                    }
+                    html += '</div>';
+                }
+
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="result error">' +
+                    '<h3>❌ 剧本分析请求失败</h3>' +
+                    '<p><strong>错误信息:</strong> ' + error.message + '</p>' +
+                    '<p>可能是网络错误或 CORS 问题。</p>' +
+                    '</div>';
+            }
+        }
+
+        function clearResult() {
+            document.getElementById('result').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
+
