@@ -5,12 +5,39 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
 import { handleOpenRouterError, validateOpenRouterKey, parseAIResponse } from "@/lib/api-utils"
 
+// Vercel 运行时配置
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // 最大执行时间 60 秒（Pro 计划）
+
+// 配置请求体大小限制（默认 4.5MB）
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '4mb', // 设置为 4MB，留一些余量
+    },
+  },
+}
+
 // 预热函数，减少冷启动延迟
 export async function GET() {
+  const apiKey = process.env.OPENROUTER_API_KEY
+  const isValid = validateOpenRouterKey(apiKey)
+
   return NextResponse.json({
     status: "ready",
     timestamp: new Date().toISOString(),
-    message: "Analyze script API is ready"
+    message: "Analyze script API is ready",
+    env: {
+      hasApiKey: !!apiKey,
+      apiKeyPrefix: apiKey?.substring(0, 12) || 'not-set',
+      apiKeyLength: apiKey?.length || 0,
+      apiKeySuffix: apiKey?.substring(apiKey.length - 4) || 'not-set',
+      isValidFormat: isValid,
+      startsWithCorrectPrefix: apiKey?.startsWith('sk-or-v1-') || false,
+      hasWhitespace: apiKey ? /\s/.test(apiKey) : false,
+      trimmedLength: apiKey?.trim().length || 0
+    }
   })
 }
 
@@ -25,28 +52,44 @@ export async function POST(request: NextRequest) {
 
     // 兼容前端传递的参数名（model 或 selectedModel）
     const modelParam = selectedModel || model
-    
+
     // 基本验证
     if (!content || typeof content !== 'string') {
       return NextResponse.json({ error: "请提供有效的剧本内容" }, { status: 400 })
     }
 
+    // 检查内容大小（Vercel 限制 4.5MB）
+    const contentSize = new Blob([content]).size
+    const maxSize = 3 * 1024 * 1024 // 3MB 安全限制
+    if (contentSize > maxSize) {
+      console.error(`[ERROR] Content too large: ${contentSize} bytes`)
+      return NextResponse.json({
+        error: `剧本内容过大（${(contentSize / 1024 / 1024).toFixed(2)}MB），超过限制（3MB）。\n\n建议：\n1. 分段分析剧本\n2. 删除不必要的内容\n3. 压缩文本`,
+        contentSize,
+        maxSize
+      }, { status: 413 })
+    }
+
     // API密钥验证
     const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
     if (!validateOpenRouterKey(OPENROUTER_API_KEY)) {
-      return NextResponse.json({ error: "OpenRouter API密钥未配置或格式无效" }, { status: 500 })
+      console.error("[ERROR] OpenRouter API Key not configured")
+      return NextResponse.json({ 
+        error: "API密钥未配置。请在 .env.local 文件中设置 OPENROUTER_API_KEY。",
+        details: "请访问 https://openrouter.ai 获取API密钥"
+      }, { status: 500 })
     }
 
     // 模型配置
     const modelConfigs = {
-      'google/gemini-flash-1.5': { name: 'Google Gemini Flash 1.5', contextLength: 1000000 },
-      'google/gemini-pro-1.5': { name: 'Google Gemini 1.5 Pro', contextLength: 2000000 },
+      'google/gemini-1.5-flash': { name: 'Google Gemini 1.5 Flash', contextLength: 1000000 },
+      'google/gemini-1.5-pro': { name: 'Google Gemini 1.5 Pro', contextLength: 2000000 },
       'anthropic/claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', contextLength: 200000 }
     }
 
     // 确保有有效的模型选择 - 强制使用默认模型
-    const finalSelectedModel = (modelParam && modelParam.trim()) ? modelParam : 'google/gemini-flash-1.5'
-    const modelConfig = modelConfigs[finalSelectedModel as keyof typeof modelConfigs] || modelConfigs['google/gemini-flash-1.5']
+    const finalSelectedModel = (modelParam && modelParam.trim()) ? modelParam : 'google/gemini-1.5-flash'
+    const modelConfig = modelConfigs[finalSelectedModel as keyof typeof modelConfigs] || modelConfigs['google/gemini-1.5-flash']
 
     console.log("[DEBUG] Model selection:", {
       originalSelectedModel: selectedModel,

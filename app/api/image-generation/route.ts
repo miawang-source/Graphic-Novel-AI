@@ -1,6 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { handleOpenRouterError, validateOpenRouterKey } from "@/lib/api-utils"
 
+// Vercel 运行时配置
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // 最大执行时间 60 秒（Pro 计划）
+
 export async function POST(request: NextRequest) {
   try {
     console.log("[DEBUG] image-generation API called")
@@ -20,9 +25,22 @@ export async function POST(request: NextRequest) {
     }
 
     // 验证API密钥
-    if (!validateOpenRouterKey(process.env.OPENROUTER_API_KEY)) {
+    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
+    console.log("[DEBUG] API Key check:", {
+      hasKey: !!OPENROUTER_API_KEY,
+      keyLength: OPENROUTER_API_KEY?.length,
+      keyPrefix: OPENROUTER_API_KEY?.substring(0, 12),
+      isValid: validateOpenRouterKey(OPENROUTER_API_KEY)
+    })
+
+    if (!validateOpenRouterKey(OPENROUTER_API_KEY)) {
       return NextResponse.json({
-        error: "OpenRouter API密钥未配置或格式无效，请联系管理员"
+        error: "OpenRouter API密钥未配置或格式无效，请联系管理员",
+        debug: {
+          hasKey: !!OPENROUTER_API_KEY,
+          keyLength: OPENROUTER_API_KEY?.length,
+          startsCorrect: OPENROUTER_API_KEY?.startsWith('sk-or-v1-')
+        }
       }, { status: 500 })
     }
 
@@ -53,7 +71,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -216,7 +234,7 @@ CRITICAL: Return actual image data, not text. I need a visual image file.`
         const retryResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({

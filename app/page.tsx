@@ -996,14 +996,14 @@ function ScriptAnalysisSection({
 
   const availableModels = [
     {
-      id: "google/gemini-flash-1.5",
-      name: "Google Gemini Flash 1.5 (免费)",
+      id: "google/gemini-1.5-flash",
+      name: "Google Gemini 1.5 Flash (免费)",
       description: "1M tokens - 快速智能模型，免费使用",
       contextLength: "1M tokens",
       isFree: true
     },
     {
-      id: "google/gemini-pro-1.5",
+      id: "google/gemini-1.5-pro",
       name: "Google Gemini 1.5 Pro (付费)",
       description: "2M tokens - 多模态模型，支持图像",
       contextLength: "2M tokens",
@@ -1232,6 +1232,12 @@ function ScriptAnalysisSection({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+
+        // 特殊处理 413 错误（请求体过大）
+        if (response.status === 413) {
+          throw new Error(errorData.error || "剧本内容过大，请分段分析或删减内容")
+        }
+
         throw new Error(errorData.error || `服务器错误: ${response.status}`)
       }
 
@@ -1264,8 +1270,11 @@ function ScriptAnalysisSection({
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           errorMessage = "请求超时，请稍后重试或使用更短的文本"
-        } else if (error.message.includes('fetch')) {
+        } else if (error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
           errorMessage = "网络连接错误，请检查网络后重试"
+        } else if (error.message) {
+          // 显示后端返回的具体错误信息
+          errorMessage = error.message
         }
       }
 
