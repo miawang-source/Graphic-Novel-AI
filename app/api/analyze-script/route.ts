@@ -39,14 +39,14 @@ export async function POST(request: NextRequest) {
 
     // 模型配置
     const modelConfigs = {
-      'google/gemini-flash-1.5': { name: 'Google Gemini Flash 1.5', contextLength: 1000000 },
       'google/gemini-pro-1.5': { name: 'Google Gemini 1.5 Pro', contextLength: 2000000 },
+      'google/gemini-2.5-pro': { name: 'Google Gemini 2.5 Pro', contextLength: 1000000 },
       'anthropic/claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', contextLength: 200000 }
     }
 
     // 确保有有效的模型选择 - 强制使用默认模型
-    const finalSelectedModel = (modelParam && modelParam.trim()) ? modelParam : 'google/gemini-flash-1.5'
-    const modelConfig = modelConfigs[finalSelectedModel as keyof typeof modelConfigs] || modelConfigs['google/gemini-flash-1.5']
+    const finalSelectedModel = (modelParam && modelParam.trim()) ? modelParam : 'google/gemini-pro-1.5'
+    const modelConfig = modelConfigs[finalSelectedModel as keyof typeof modelConfigs] || modelConfigs['google/gemini-pro-1.5']
 
     console.log("[DEBUG] Model selection:", {
       originalSelectedModel: selectedModel,
