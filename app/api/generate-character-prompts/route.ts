@@ -1145,33 +1145,14 @@ export async function POST(request: NextRequest) {
     const debugInfo: any = {
       finalScriptId,
       generatedPromptsCount: generatedPrompts.length,
-      deleteResult: null,
       insertResult: null,
       errors: []
     }
 
     // 保存到Characters表
     try {
-      // 先删除该剧本的旧角色数据（只有当finalScriptId有效时才删除）
-      if (finalScriptId && finalScriptId !== 'undefined' && finalScriptId !== 'null') {
-        console.log("[DEBUG] Attempting to delete old characters for script:", finalScriptId)
-        const { error: deleteError, count } = await supabase
-          .from("characters")
-          .delete()
-          .eq("script_id", finalScriptId)
-
-        if (deleteError) {
-          console.error("[ERROR] Failed to delete old characters:", deleteError)
-          debugInfo.deleteResult = { success: false, error: deleteError.message }
-          debugInfo.errors.push({ step: 'delete', error: deleteError })
-        } else {
-          console.log("[DEBUG] Deleted old characters for script:", finalScriptId)
-          debugInfo.deleteResult = { success: true, count }
-        }
-      } else {
-        console.log("[WARNING] Skipping delete - invalid finalScriptId:", finalScriptId)
-        debugInfo.deleteResult = { skipped: true, reason: 'invalid finalScriptId' }
-      }
+      // 不删除旧数据，保留历史版本
+      console.log("[DEBUG] Skipping delete - preserving historical data")
 
       // 插入新的角色数据 - 根据实际表结构调整字段
       const charactersToInsert = generatedPrompts.map(character => ({
@@ -1183,7 +1164,7 @@ export async function POST(request: NextRequest) {
         role_type: character.role_type || 'main', // 添加 role_type 字段
         chinese_prompt: character.chinese_prompt,
         english_prompt: character.english_prompt,
-        created_at: new Date().toISOString()
+        // 不设置 created_at 和 updated_at，让数据库自动生成
       }))
 
       console.log("[DEBUG] 准备插入的角色数据:", {
