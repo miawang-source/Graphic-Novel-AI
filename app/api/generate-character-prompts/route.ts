@@ -1200,6 +1200,7 @@ export async function POST(request: NextRequest) {
         script_id: finalScriptId,
         name: character.name,
         description: character.description,
+        role_type: character.role_type || 'main', // 添加 role_type 字段
         chinese_prompt: character.chinese_prompt,
         english_prompt: character.english_prompt,
         created_at: new Date().toISOString()
