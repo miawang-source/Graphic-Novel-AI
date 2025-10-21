@@ -27,6 +27,9 @@ CREATE POLICY "Allow public insert on characters" ON characters
 CREATE POLICY "Allow public update on characters" ON characters
     FOR UPDATE USING (true);
 
+CREATE POLICY "Allow public delete on characters" ON characters
+    FOR DELETE USING (true);
+
 -- Scenes policies
 CREATE POLICY "Allow public read access on scenes" ON scenes
     FOR SELECT USING (true);
@@ -37,6 +40,9 @@ CREATE POLICY "Allow public insert on scenes" ON scenes
 CREATE POLICY "Allow public update on scenes" ON scenes
     FOR UPDATE USING (true);
 
+CREATE POLICY "Allow public delete on scenes" ON scenes
+    FOR DELETE USING (true);
+
 -- Materials policies
 CREATE POLICY "Allow public read access on materials" ON materials
     FOR SELECT USING (true);
@@ -46,3 +52,6 @@ CREATE POLICY "Allow public insert on materials" ON materials
 
 CREATE POLICY "Allow public update on materials" ON materials
     FOR UPDATE USING (true);
+
+CREATE POLICY "Allow public delete on materials" ON materials
+    FOR DELETE USING (true);
