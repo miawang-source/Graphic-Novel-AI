@@ -1389,6 +1389,16 @@ function ScriptAnalysisSection({
 
       const result = await response.json()
       console.log("[DEBUG] Character prompts result:", result)
+
+      // 显示服务器端调试信息
+      if (result.debugInfo) {
+        console.log("[DEBUG] 服务器端调试信息:", result.debugInfo)
+        if (result.debugInfo.errors && result.debugInfo.errors.length > 0) {
+          console.error("[ERROR] 服务器端错误:", result.debugInfo.errors)
+          alert("数据库操作失败，请查看控制台了解详情:\n" + JSON.stringify(result.debugInfo.errors, null, 2))
+        }
+      }
+
       if (result.success) {
         console.log("[DEBUG] Generated character prompts data:", result.data)
         onGenerateCharacterPrompts(result.data)

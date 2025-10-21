@@ -1141,23 +1141,36 @@ export async function POST(request: NextRequest) {
     console.log("[DEBUG] Generated prompts:", generatedPrompts.length)
     console.log("[DEBUG] finalScriptId value:", finalScriptId, "type:", typeof finalScriptId)
 
+    // 用于收集调试信息
+    const debugInfo: any = {
+      finalScriptId,
+      generatedPromptsCount: generatedPrompts.length,
+      deleteResult: null,
+      insertResult: null,
+      errors: []
+    }
+
     // 保存到Characters表
     try {
       // 先删除该剧本的旧角色数据（只有当finalScriptId有效时才删除）
       if (finalScriptId && finalScriptId !== 'undefined' && finalScriptId !== 'null') {
         console.log("[DEBUG] Attempting to delete old characters for script:", finalScriptId)
-        const { error: deleteError } = await supabase
+        const { error: deleteError, count } = await supabase
           .from("characters")
           .delete()
           .eq("script_id", finalScriptId)
 
         if (deleteError) {
           console.error("[ERROR] Failed to delete old characters:", deleteError)
+          debugInfo.deleteResult = { success: false, error: deleteError.message }
+          debugInfo.errors.push({ step: 'delete', error: deleteError })
         } else {
           console.log("[DEBUG] Deleted old characters for script:", finalScriptId)
+          debugInfo.deleteResult = { success: true, count }
         }
       } else {
         console.log("[WARNING] Skipping delete - invalid finalScriptId:", finalScriptId)
+        debugInfo.deleteResult = { skipped: true, reason: 'invalid finalScriptId' }
       }
 
       // 插入新的角色数据 - 根据实际表结构调整字段
@@ -1194,16 +1207,34 @@ export async function POST(request: NextRequest) {
           hint: insertError.hint,
           code: insertError.code
         })
+        debugInfo.insertResult = {
+          success: false,
+          error: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code
+        }
+        debugInfo.errors.push({ step: 'insert', error: insertError })
       } else {
         console.log("[DEBUG] Characters saved successfully:", {
           count: charactersToInsert.length,
           insertedData: insertedData
         })
+        debugInfo.insertResult = {
+          success: true,
+          count: charactersToInsert.length,
+          insertedCount: insertedData?.length || 0
+        }
       }
     } catch (charactersError) {
       console.error("[ERROR] Exception while saving characters:", charactersError)
       if (charactersError instanceof Error) {
         console.error("[ERROR] Error details:", {
+          message: charactersError.message,
+          stack: charactersError.stack
+        })
+        debugInfo.errors.push({
+          step: 'exception',
           message: charactersError.message,
           stack: charactersError.stack
         })
@@ -1237,6 +1268,7 @@ export async function POST(request: NextRequest) {
         scriptId: finalScriptId,
         characters: generatedPrompts,
       },
+      debugInfo: debugInfo, // 添加调试信息
     })
   } catch (error) {
     console.error("Generate character prompts error:", error)
