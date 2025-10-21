@@ -188,6 +188,12 @@ ${processedContent}
       }, { status: 422 })
     }
 
+    // 确保有 scriptId（如果AI没有返回，则生成一个）
+    if (!analysisResult.scriptId) {
+      analysisResult.scriptId = `script_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+      console.log("[DEBUG] Generated scriptId:", analysisResult.scriptId)
+    }
+
     // 验证结果格式
     if (!analysisResult.characters || !analysisResult.scenes) {
       return NextResponse.json({
