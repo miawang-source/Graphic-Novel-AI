@@ -188,12 +188,6 @@ ${processedContent}
       }, { status: 422 })
     }
 
-    // 确保有 scriptId（如果AI没有返回，则生成一个）
-    if (!analysisResult.scriptId) {
-      analysisResult.scriptId = `script_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-      console.log("[DEBUG] Generated scriptId:", analysisResult.scriptId)
-    }
-
     // 验证结果格式
     if (!analysisResult.characters || !analysisResult.scenes) {
       return NextResponse.json({
@@ -205,21 +199,26 @@ ${processedContent}
       }, { status: 500 })
     }
 
-    // 保存到数据库
+    // 保存到数据库并获取生成的ID
+    let scriptId = null
     try {
       const supabase = createServerClient()
-      const { error: dbError } = await supabase
+      const { data, error: dbError } = await supabase
         .from('scripts')
         .insert({
-          id: analysisResult.scriptId,
           title: title || "未知剧本",
           content: processedContent,
           analysis_result: analysisResult,
           created_at: new Date().toISOString()
         })
+        .select('id')
+        .single()
 
       if (dbError) {
         console.error("Database error:", dbError)
+      } else if (data) {
+        scriptId = data.id
+        console.log("[DEBUG] Script saved with ID:", scriptId)
       }
     } catch (dbError) {
       console.error("Database error:", dbError)
@@ -233,7 +232,7 @@ ${processedContent}
       success: true,
       data: analysisResult,
       title: title || "未知剧本",
-      scriptId: analysisResult.scriptId,
+      scriptId: scriptId, // 使用数据库生成的ID
       truncated: wasTruncated,
       performance: {
         totalTime,
