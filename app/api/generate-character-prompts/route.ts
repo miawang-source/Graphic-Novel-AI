@@ -464,8 +464,6 @@ function buildUserPrompt(character: any) {
 
 // 从AI响应中解析提示词
 function parseAIResponse(aiResponse: string, characterName: string) {
-  console.log(`[DEBUG] Raw AI response for ${characterName}:`, aiResponse.substring(0, 500))
-
   // 提取完整的中文提示词（包含服装版本）
   let chinesePrompt = ""
 
@@ -473,18 +471,15 @@ function parseAIResponse(aiResponse: string, characterName: string) {
   const chineseSection = aiResponse.match(/中文提示词[：:]\s*\n?([\s\S]*?)(?=英文提示词|$)/i)
   if (chineseSection) {
     chinesePrompt = chineseSection[1].trim()
-    console.log(`[DEBUG] Chinese section found, length: ${chinesePrompt.length}`)
     // 清理多余的空行，保持服装版本的格式
     chinesePrompt = chinesePrompt.replace(/(\*\*服装版本[：:]\*\*)\s*\n\s*(\*\*版本)/g, '$1\n$2')
     chinesePrompt = chinesePrompt.replace(/\n\s*\n/g, '\n')
   } else {
-    console.log(`[DEBUG] Chinese section NOT found, trying fallback`)
     // 备用方案：只提取第一行基础描述
     const chineseMatch = aiResponse.match(/中文提示词[：:]\s*\n?([^\n*]+)/i) ||
                         aiResponse.match(/漫画风格[，,]([^\n*]+)/i)
     if (chineseMatch) {
       chinesePrompt = chineseMatch[1].trim()
-      console.log(`[DEBUG] Fallback Chinese match found: ${chinesePrompt}`)
     }
   }
 
@@ -504,28 +499,17 @@ function parseAIResponse(aiResponse: string, characterName: string) {
                         aiResponse.match(/manga style[,，]([^\n*]+)/i)
     if (englishMatch) {
       englishPrompt = englishMatch[1].trim()
-      console.log(`[DEBUG] Fallback English match found: ${englishPrompt}`)
     }
   }
 
   // 验证和清理最终结果 - 只在完全为空时才使用默认值
   if (!chinesePrompt || chinesePrompt.trim().length === 0) {
-    console.warn(`[WARNING] Chinese prompt is empty for ${characterName}, using fallback`)
     chinesePrompt = `漫画风格，${characterName}，详细外貌特征，个性鲜明`
   }
 
   if (!englishPrompt || englishPrompt.trim().length === 0) {
-    console.warn(`[WARNING] English prompt is empty for ${characterName}, using fallback`)
     englishPrompt = `manga style, ${characterName}, detailed appearance, distinctive personality`
   }
-
-  // 记录提示词长度用于调试
-  console.log(`[DEBUG] Final prompts for ${characterName}:`, {
-    chineseLength: chinesePrompt.length,
-    englishLength: englishPrompt.length,
-    chinesePreview: chinesePrompt.substring(0, 100),
-    englishPreview: englishPrompt.substring(0, 100)
-  })
 
   return {
     chinese_prompt: chinesePrompt,
@@ -1040,10 +1024,7 @@ export async function POST(request: NextRequest) {
 
     for (const character of characters) {
       try {
-        console.log("[DEBUG] Processing character:", character.name)
-
         const userPrompt = buildUserPrompt(character)
-        console.log("[DEBUG] User prompt for", character.name + ":", userPrompt)
 
         // 调用AI生成提示词
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -1090,12 +1071,8 @@ export async function POST(request: NextRequest) {
           throw new Error("No content received from AI")
         }
 
-        console.log("[DEBUG] AI response for " + character.name + ":", content)
-
         // 解析AI响应
         const promptData = parseAIResponse(content, character.name)
-        
-        console.log("[DEBUG] Parsed prompts for " + character.name + ":", promptData)
 
         // 素材匹配
         const matchingData = {
@@ -1138,88 +1115,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log("[DEBUG] Generated prompts:", generatedPrompts.length)
-    console.log("[DEBUG] finalScriptId value:", finalScriptId, "type:", typeof finalScriptId)
-
-    // 用于收集调试信息
-    const debugInfo: any = {
-      finalScriptId,
-      generatedPromptsCount: generatedPrompts.length,
-      insertResult: null,
-      errors: []
-    }
-
     // 保存到Characters表
     try {
-      // 不删除旧数据，保留历史版本
-      console.log("[DEBUG] Skipping delete - preserving historical data")
-
-      // 插入新的角色数据 - 根据实际表结构调整字段
       const charactersToInsert = generatedPrompts.map(character => ({
         script_id: finalScriptId,
         name: character.name,
         description: typeof character.description === 'string'
           ? character.description
-          : JSON.stringify(character.description), // 确保 description 是字符串
-        role_type: character.role_type || 'main', // 添加 role_type 字段
+          : JSON.stringify(character.description),
+        role_type: character.role_type || 'main',
         chinese_prompt: character.chinese_prompt,
         english_prompt: character.english_prompt,
-        // 不设置 created_at 和 updated_at，让数据库自动生成
       }))
 
-      console.log("[DEBUG] 准备插入的角色数据:", {
-        finalScriptId,
-        finalScriptIdType: typeof finalScriptId,
-        charactersCount: charactersToInsert.length,
-        firstCharacter: charactersToInsert[0],
-        allCharacters: charactersToInsert.map(c => ({ name: c.name, script_id: c.script_id }))
-      })
-
-      const { data: insertedData, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from("characters")
         .insert(charactersToInsert)
-        .select()
 
       if (insertError) {
-        console.error("[ERROR] Failed to save characters:", {
-          error: insertError,
-          message: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint,
-          code: insertError.code
-        })
-        debugInfo.insertResult = {
-          success: false,
-          error: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint,
-          code: insertError.code
-        }
-        debugInfo.errors.push({ step: 'insert', error: insertError })
-      } else {
-        console.log("[DEBUG] Characters saved successfully:", {
-          count: charactersToInsert.length,
-          insertedData: insertedData
-        })
-        debugInfo.insertResult = {
-          success: true,
-          count: charactersToInsert.length,
-          insertedCount: insertedData?.length || 0
-        }
+        console.error("Failed to save characters:", insertError)
       }
     } catch (charactersError) {
-      console.error("[ERROR] Exception while saving characters:", charactersError)
-      if (charactersError instanceof Error) {
-        console.error("[ERROR] Error details:", {
-          message: charactersError.message,
-          stack: charactersError.stack
-        })
-        debugInfo.errors.push({
-          step: 'exception',
-          message: charactersError.message,
-          stack: charactersError.stack
-        })
-      }
+      console.error("Error saving characters:", charactersError)
     }
 
     // 保存到历史记录表
@@ -1230,13 +1147,10 @@ export async function POST(request: NextRequest) {
           script_title: scriptTitle,
           script_id: finalScriptId,
           characters: generatedPrompts,
-          created_at: new Date().toISOString()
         })
 
       if (historyError) {
         console.error("Failed to save character prompts history:", historyError)
-      } else {
-        console.log("[DEBUG] Character prompts history saved successfully")
       }
     } catch (historyError) {
       console.error("Error saving character prompts history:", historyError)
@@ -1249,7 +1163,6 @@ export async function POST(request: NextRequest) {
         scriptId: finalScriptId,
         characters: generatedPrompts,
       },
-      debugInfo: debugInfo, // 添加调试信息
     })
   } catch (error) {
     console.error("Generate character prompts error:", error)
