@@ -1109,43 +1109,8 @@ export async function POST(request: NextRequest) {
         const matchedMaterial = await findMatchingMaterial(matchingData, supabase)
         const multipleMaterials = await findMultipleMatchingMaterials(matchingData, supabase, 3)
 
-        // 保存到数据库
-        if (finalScriptId) {
-          const { data: existingCharacter } = await supabase
-            .from("characters")
-            .select("id")
-            .eq("script_id", finalScriptId)
-            .eq("name", character.name)
-            .single()
-
-          const characterData = {
-            description: character.description,
-            role_type: character.role_type,
-            chinese_prompt: promptData.chinese_prompt,
-            english_prompt: promptData.english_prompt,
-          }
-
-          if (existingCharacter) {
-            const { error: updateError } = await supabase
-              .from("characters")
-              .update(characterData)
-              .eq("id", existingCharacter.id)
-
-            if (updateError) {
-              console.error("Failed to update character " + character.name + ":", updateError)
-            }
-          } else {
-            const { error: insertError } = await supabase.from("characters").insert({
-              script_id: finalScriptId,
-              name: character.name,
-              ...characterData,
-            })
-
-            if (insertError) {
-              console.error("Failed to insert character " + character.name + ":", insertError)
-            }
-          }
-        }
+        // 注意：不在这里保存到数据库，而是在循环结束后批量插入
+        // 这样可以避免重复插入和删除的问题
 
         generatedPrompts.push({
           name: character.name,
@@ -1199,7 +1164,9 @@ export async function POST(request: NextRequest) {
       const charactersToInsert = generatedPrompts.map(character => ({
         script_id: finalScriptId,
         name: character.name,
-        description: character.description,
+        description: typeof character.description === 'string'
+          ? character.description
+          : JSON.stringify(character.description), // 确保 description 是字符串
         role_type: character.role_type || 'main', // 添加 role_type 字段
         chinese_prompt: character.chinese_prompt,
         english_prompt: character.english_prompt,
