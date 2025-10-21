@@ -1365,16 +1365,26 @@ function ScriptAnalysisSection({
 
     setIsGeneratingCharacterPrompts(true)
     try {
+      const requestData = {
+        characters: analysisResult.characters,
+        scriptTitle: analysisResult.title,
+        scriptId: analysisResult.scriptId || (analysisResult as any).scriptId, // 使用analysisResult.scriptId
+      }
+
+      console.log("[DEBUG] 准备发送角色提示词生成请求:", {
+        scriptId: requestData.scriptId,
+        scriptIdType: typeof requestData.scriptId,
+        scriptTitle: requestData.scriptTitle,
+        charactersCount: requestData.characters.length,
+        analysisResult: analysisResult
+      })
+
       const response = await fetch("/api/generate-character-prompts", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          characters: analysisResult.characters,
-          scriptTitle: analysisResult.title,
-          scriptId: analysisResult.scriptId || (analysisResult as any).scriptId, // 使用analysisResult.scriptId
-        }),
+        body: JSON.stringify(requestData),
       })
 
       const result = await response.json()
