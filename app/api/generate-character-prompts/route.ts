@@ -1032,8 +1032,6 @@ export async function POST(request: NextRequest) {
           headers: {
             "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://v0.dev",
-            "X-Title": "Comic Production Tool",
           },
           body: JSON.stringify({
             model: MODEL,
