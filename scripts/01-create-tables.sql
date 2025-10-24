@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS scripts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   title VARCHAR(200) NOT NULL,
   content TEXT,
+  analysis_result JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

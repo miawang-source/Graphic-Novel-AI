@@ -206,8 +206,7 @@ ${processedContent}
         .insert({
           title: title || "未知剧本",
           content: processedContent,
-          analysis_result: analysisResult,
-          created_at: new Date().toISOString()
+          analysis_result: analysisResult
         })
         .select('id')
         .single()
