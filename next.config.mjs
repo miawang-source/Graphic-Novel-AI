@@ -22,6 +22,13 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
   },
 
+  // API 路由配置 - 增加文件上传大小限制
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb', // 设置为 50MB 以支持大文件上传
+    },
+  },
+
   // 压缩配置
   compress: true,
 

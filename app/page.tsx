@@ -1088,10 +1088,10 @@ function ScriptAnalysisSection({
       isFree: false
     },
     {
-      id: "google/gemini-pro-1.5",
-      name: "Google Gemini 1.5 Pro",
-      description: "2M tokens - 多模态模型，支持图像",
-      contextLength: "2M tokens",
+      id: "google/gemini-2.0-flash-001",
+      name: "Google Gemini 2.0 Flash",
+      description: "1M tokens - 快速高效模型",
+      contextLength: "1M tokens",
       isFree: false
     },
     {
@@ -1188,8 +1188,8 @@ function ScriptAnalysisSection({
       if (!content.trim()) {
         throw new Error("文本文件内容为空")
       }
-      if (content.length > 1000000) { // 1MB文本限制
-        throw new Error('文本文件过大，请选择小于1MB的文件')
+      if (content.length > 10000000) { // 10MB文本限制（约1000万字符）
+        throw new Error('文本文件过大，请选择小于10MB的文件')
       }
     } else {
       throw new Error(`不支持的文件格式：${fileName.split('.').pop()?.toUpperCase()}。请上传 .txt（纯文本）或 .docx（Word文档）格式的文件。`)
