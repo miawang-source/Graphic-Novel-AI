@@ -5,41 +5,74 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 
+// 获取允许的图片源和连接源
+function getAllowedSources() {
+  const sources = {
+    img: ["'self'", 'data:', 'blob:', 'https:'],
+    connect: ["'self'", 'https://openrouter.ai']
+  }
+
+  // 添加 Supabase URL
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (supabaseUrl) {
+    sources.img.push(supabaseUrl)
+    sources.connect.push(supabaseUrl)
+  }
+
+  // 添加自部署 Supabase 存储 URL
+  const storageUrl = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_URL
+  if (storageUrl) {
+    sources.img.push(storageUrl)
+    sources.connect.push(storageUrl)
+  }
+
+  // 兼容旧配置：直接添加已知的自部署地址
+  if (!storageUrl) {
+    sources.img.push('http://10.173.173.175:8000')
+    sources.connect.push('http://10.173.173.175:8000')
+  }
+
+  return sources
+}
+
 // 安全头部配置
 export const SECURITY_HEADERS = {
   // 防止点击劫持
   'X-Frame-Options': 'DENY',
-  
+
   // 防止 MIME 类型嗅探
   'X-Content-Type-Options': 'nosniff',
-  
+
   // XSS 保护
   'X-XSS-Protection': '1; mode=block',
-  
+
   // 引用策略
   'Referrer-Policy': 'origin-when-cross-origin',
-  
+
   // 权限策略
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  
+
   // 严格传输安全（仅在 HTTPS 环境下）
   ...(process.env.NODE_ENV === 'production' && {
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
   }),
-  
+
   // 内容安全策略
-  'Content-Security-Policy': [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js 需要 unsafe-inline 和 unsafe-eval
-    "style-src 'self' 'unsafe-inline'", // Tailwind CSS 需要 unsafe-inline
-    "img-src 'self' data: blob: https:", // 添加 blob: 支持图片预览
-    "font-src 'self' data:",
-    "connect-src 'self' https://gyafalegiojqnzyfasvb.supabase.co https://openrouter.ai",
-    "frame-src 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'"
-  ].join('; ')
+  'Content-Security-Policy': (() => {
+    const sources = getAllowedSources()
+    return [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js 需要 unsafe-inline 和 unsafe-eval
+      "style-src 'self' 'unsafe-inline'", // Tailwind CSS 需要 unsafe-inline
+      `img-src ${sources.img.join(' ')}`, // 动态添加图片源
+      "font-src 'self' data:",
+      `connect-src ${sources.connect.join(' ')}`, // 动态添加连接源
+      "frame-src 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'"
+    ].join('; ')
+  })()
 }
 
 // 应用安全头部到响应

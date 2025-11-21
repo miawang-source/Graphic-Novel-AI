@@ -11,7 +11,20 @@ const nextConfig = {
   // 图片优化配置
   images: {
     unoptimized: false, // 生产环境启用图片优化
-    domains: ['gyafalegiojqnzyfasvb.supabase.co'],
+    domains: ['gyafalegiojqnzyfasvb.supabase.co', '10.173.173.175'],
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: '10.173.173.175',
+        port: '8000',
+        pathname: '/storage/v1/object/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'gyafalegiojqnzyfasvb.supabase.co',
+        pathname: '/storage/v1/object/**',
+      },
+    ],
     formats: ['image/webp', 'image/avif'],
     minimumCacheTTL: 60,
   },
