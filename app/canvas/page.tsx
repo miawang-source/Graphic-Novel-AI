@@ -152,24 +152,10 @@ export default function CanvasPage() {
       console.log('URL params:', { materialId, imageUrl })
 
       if (materialId && imageUrl) {
-        const newImage: CanvasImage = {
-          id: materialId,
-          src: decodeURIComponent(imageUrl),
-          x: 100,
-          y: 100,
-          width: 200,
-          height: 200,
-          selected: true,
-          materialId
-        }
-
-        setCanvasState(prev => ({
-          ...prev,
-          images: [newImage]
-        }))
-
+        // 使用已有的添加逻辑，确保图片在画布中心附近显示
+        addImageToCanvas(decodeURIComponent(imageUrl), materialId)
         setSelectedImages([materialId])
-        console.log('Added initial image from URL:', newImage)
+        console.log('Added initial image from URL via addImageToCanvas')
       }
     }
   }, []) // 只执行一次
