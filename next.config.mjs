@@ -91,6 +91,18 @@ const nextConfig = {
       },
     ]
   },
+
+  // Webpack配置 - 支持canvas和pdfjs-dist
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // canvas需要特殊处理
+      config.externals = config.externals || []
+      if (Array.isArray(config.externals)) {
+        config.externals.push('canvas')
+      }
+    }
+    return config
+  },
 }
 
 export default nextConfig

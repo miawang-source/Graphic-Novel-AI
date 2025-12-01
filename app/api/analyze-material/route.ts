@@ -1,5 +1,74 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
+import { readPsd, initializeCanvas } from 'ag-psd'
+import sharp from 'sharp'
+
+// 初始化虚拟Canvas以避免Canvas依赖错误
+const createCanvas = (width: number, height: number) => {
+  // 创建虚拟的2D context
+  const context = {
+    createImageData: (w: number, h: number) => ({
+      width: w,
+      height: h,
+      data: new Uint8ClampedArray(w * h * 4)
+    }),
+    putImageData: () => {},
+    getImageData: (_x: number, _y: number, w: number, h: number) => ({
+      width: w,
+      height: h,
+      data: new Uint8ClampedArray(w * h * 4)
+    }),
+    drawImage: () => {},
+    fillRect: () => {},
+    clearRect: () => {}
+  }
+
+  // 返回一个虚拟Canvas对象
+  return {
+    width,
+    height,
+    getContext: (type: string) => type === '2d' ? context : null,
+    toBuffer: () => Buffer.alloc(0),
+    toDataURL: () => ''
+  }
+}
+
+const createCanvasFromData = (data: Uint8Array) => {
+  // 创建虚拟的2D context
+  const context = {
+    createImageData: (w: number, h: number) => ({
+      width: w,
+      height: h,
+      data: new Uint8ClampedArray(w * h * 4)
+    }),
+    putImageData: () => {},
+    getImageData: (_x: number, _y: number, w: number, h: number) => ({
+      width: w,
+      height: h,
+      data: new Uint8ClampedArray(w * h * 4)
+    }),
+    drawImage: () => {},
+    fillRect: () => {},
+    clearRect: () => {}
+  }
+
+  // 返回一个虚拟Canvas对象
+  return {
+    width: 1,
+    height: 1,
+    getContext: (type: string) => type === '2d' ? context : null,
+    toBuffer: () => Buffer.from(data),
+    toDataURL: () => ''
+  }
+}
+
+// 初始化ag-psd的Canvas方法
+try {
+  initializeCanvas(createCanvas as any, createCanvasFromData as any)
+  console.log("[DEBUG] Virtual Canvas initialized for ag-psd")
+} catch (initError) {
+  console.log("[DEBUG] Canvas initialization skipped:", initError)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,13 +97,234 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No category provided" }, { status: 400 })
     }
 
-    // Convert file to base64
-    const bytes = await file.arrayBuffer()
-    const base64 = Buffer.from(bytes).toString("base64")
-    const mimeType = file.type
+    // 检查文件类型
+    const fileExtension = file.name.split(".").pop()?.toLowerCase()
+    const isPsd = fileExtension === 'psd'
+    const isPdf = fileExtension === 'pdf'
 
-    console.log("[DEBUG] Starting material analysis for file:", file.name)
-    console.log("[DEBUG] File size:", bytes.byteLength, "bytes")
+    console.log("[DEBUG] File extension:", fileExtension, "isPSD:", isPsd, "isPDF:", isPdf)
+
+    // 处理PSD/PDF文件或普通图片文件
+    let imageForAnalysis: { bytes: ArrayBuffer; mimeType: string; fileName: string }
+    let originalPsdFile: File | null = null
+    let originalPdfFile: File | null = null
+    let psdWidth = 0
+    let psdHeight = 0
+
+    if (isPsd) {
+      console.log("[DEBUG] Processing PSD file...")
+
+      // 保存原始PSD文件引用
+      originalPsdFile = file
+
+      let psdData: any
+      try {
+        // 读取PSD文件
+        console.log("[DEBUG] Reading PSD file bytes...")
+        const psdBytes = await file.arrayBuffer()
+        console.log("[DEBUG] PSD file size:", psdBytes.byteLength, "bytes")
+
+        // 解析PSD文件，使用原始数据选项避免Canvas依赖
+        console.log("[DEBUG] Parsing PSD with ag-psd...")
+        psdData = readPsd(psdBytes, {
+          useImageData: true,      // 使用原始图像数据而不是Canvas
+          useRawThumbnail: true,   // 使用原始缩略图数据
+          skipLayerImageData: true // 跳过图层数据以提高性能
+        })
+
+        if (!psdData) {
+          throw new Error('无法解析PSD文件')
+        }
+
+        psdWidth = psdData.width
+        psdHeight = psdData.height
+
+        console.log("[DEBUG] PSD parsed successfully. Size:", psdWidth, "x", psdHeight)
+        console.log("[DEBUG] PSD has imageData:", !!psdData.imageData)
+        console.log("[DEBUG] PSD has thumbnail:", !!psdData.thumbnail)
+        console.log("[DEBUG] PSD has thumbnailRaw:", !!psdData.thumbnailRaw)
+      } catch (psdError) {
+        console.error("[ERROR] PSD parsing failed:", psdError)
+        throw new Error(`PSD文件解析失败: ${psdError instanceof Error ? psdError.message : 'Unknown error'}`)
+      }
+
+      // 提取缩略图
+      let thumbnailBytes: ArrayBuffer | undefined
+      let thumbnailMimeType: string | undefined
+
+      // 方法1: 优先使用原始缩略图数据 (thumbnailRaw)
+      if (psdData.thumbnailRaw) {
+        console.log("[DEBUG] Using PSD raw thumbnail data")
+        try {
+          const rawData = psdData.thumbnailRaw
+          if (rawData instanceof ArrayBuffer) {
+            thumbnailBytes = rawData
+          } else if (rawData.buffer) {
+            thumbnailBytes = rawData.buffer.slice(rawData.byteOffset, rawData.byteOffset + rawData.byteLength)
+          } else {
+            // 如果是其他类型的数据，转换为ArrayBuffer
+            const uint8Array = new Uint8Array(rawData)
+            thumbnailBytes = uint8Array.buffer.slice(uint8Array.byteOffset, uint8Array.byteOffset + uint8Array.byteLength)
+          }
+          thumbnailMimeType = 'image/jpeg' // PSD原始缩略图通常是JPEG格式
+          console.log("[DEBUG] Raw thumbnail found, size:", thumbnailBytes?.byteLength || 0, "bytes")
+        } catch (rawError) {
+          console.log("[DEBUG] Raw thumbnail processing failed:", rawError)
+          thumbnailBytes = undefined as any
+        }
+      }
+
+      // 方法2: 使用解码后的缩略图数据
+      if (!thumbnailBytes && psdData.thumbnail) {
+        console.log("[DEBUG] Using PSD decoded thumbnail")
+        try {
+          if (psdData.thumbnail.data) {
+            const thumbData = psdData.thumbnail.data
+            if (thumbData instanceof ArrayBuffer) {
+              thumbnailBytes = thumbData
+            } else if (thumbData.buffer) {
+              thumbnailBytes = thumbData.buffer.slice(thumbData.byteOffset, thumbData.byteOffset + thumbData.byteLength)
+            } else {
+              const uint8Array = new Uint8Array(thumbData)
+              thumbnailBytes = uint8Array.buffer.slice(uint8Array.byteOffset, uint8Array.byteOffset + uint8Array.byteLength)
+            }
+            thumbnailMimeType = 'image/jpeg'
+            console.log("[DEBUG] Decoded thumbnail found, size:", thumbnailBytes?.byteLength || 0, "bytes")
+          }
+        } catch (thumbError) {
+          console.log("[DEBUG] Decoded thumbnail processing failed:", thumbError)
+          thumbnailBytes = undefined as any
+        }
+      }
+
+      // 方法3: 使用imageData转换为PNG
+      if (!thumbnailBytes && psdData.imageData) {
+        console.log("[DEBUG] Converting PSD imageData to PNG using sharp...")
+        try {
+          const imageData = psdData.imageData
+          const width = psdWidth
+          const height = psdHeight
+
+          // imageData.data 是一个 Uint8ClampedArray，包含 RGBA 数据
+          if (imageData.data && imageData.data.length > 0) {
+            console.log("[DEBUG] ImageData dimensions:", width, "x", height)
+            console.log("[DEBUG] ImageData buffer size:", imageData.data.length, "bytes")
+
+            // 使用sharp将RGBA数据转换为PNG
+            const pngBuffer = await sharp(Buffer.from(imageData.data), {
+              raw: {
+                width: width,
+                height: height,
+                channels: 4 // RGBA
+              }
+            })
+            .png()
+            .toBuffer()
+
+            // 直接使用Buffer作为ArrayBuffer
+            const arrayBuffer = new Uint8Array(pngBuffer).buffer
+            thumbnailBytes = arrayBuffer
+            thumbnailMimeType = 'image/png'
+            console.log("[DEBUG] PNG conversion successful, size:", pngBuffer.length, "bytes")
+          }
+        } catch (imageDataError) {
+          console.log("[DEBUG] ImageData conversion failed:", imageDataError)
+          thumbnailBytes = undefined as any
+        }
+      }
+
+      // 如果所有方法都失败，抛出错误
+      if (!thumbnailBytes || !thumbnailMimeType) {
+        throw new Error('无法从PSD文件提取或生成图像数据，请检查PSD文件是否损坏')
+      }
+
+      imageForAnalysis = {
+        bytes: thumbnailBytes as ArrayBuffer,
+        mimeType: thumbnailMimeType as string,
+        fileName: file.name.replace('.psd',
+          thumbnailMimeType === 'image/jpeg' ? '.jpg' :
+          thumbnailMimeType === 'image/png' ? '.png' : '.jpg')
+      }
+    } else if (isPdf) {
+      console.log("[DEBUG] Processing PDF file...")
+
+      // 保存原始PDF文件引用
+      originalPdfFile = file
+
+      try {
+        // 读取PDF文件
+        console.log("[DEBUG] Reading PDF file bytes...")
+        const pdfBytes = await file.arrayBuffer()
+        console.log("[DEBUG] PDF file size:", pdfBytes.byteLength, "bytes")
+
+        // 使用pdfjs-dist将PDF第一页转换为PNG
+        console.log("[DEBUG] Converting PDF first page to PNG using pdfjs-dist...")
+        const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs')
+        
+        // 加载PDF文档
+        const loadingTask = pdfjsLib.getDocument({
+          data: new Uint8Array(pdfBytes),
+          useSystemFonts: true,
+        })
+        const pdfDocument = await loadingTask.promise
+        
+        console.log("[DEBUG] PDF loaded, pages:", pdfDocument.numPages)
+        
+        // 获取第一页
+        const page = await pdfDocument.getPage(1)
+        const viewport = page.getViewport({ scale: 2.0 })
+        
+        console.log("[DEBUG] Page viewport:", viewport.width, "x", viewport.height)
+        
+        // 创建canvas来渲染PDF
+        const Canvas = (await import('canvas')).default
+        const canvas = Canvas.createCanvas(viewport.width, viewport.height)
+        const context = canvas.getContext('2d')
+        
+        // 渲染PDF页面到canvas
+        await page.render({
+          canvasContext: context as any,
+          viewport: viewport,
+          canvas: canvas as any,
+        }).promise
+        
+        console.log("[DEBUG] PDF page rendered to canvas")
+        
+        // 将canvas转换为PNG buffer
+        const pngBuffer = canvas.toBuffer('image/png')
+        console.log("[DEBUG] PNG buffer created, size:", pngBuffer.length, "bytes")
+        
+        // 转换为ArrayBuffer
+        const arrayBuffer = pngBuffer.buffer.slice(pngBuffer.byteOffset, pngBuffer.byteOffset + pngBuffer.byteLength) as ArrayBuffer
+        
+        imageForAnalysis = {
+          bytes: arrayBuffer,
+          mimeType: 'image/png',
+          fileName: file.name.replace('.pdf', '.png')
+        }
+
+      } catch (pdfError) {
+        console.error("[ERROR] PDF processing failed:", pdfError)
+        console.error("[ERROR] PDF error stack:", pdfError instanceof Error ? pdfError.stack : 'No stack')
+        console.error("[ERROR] PDF error details:", JSON.stringify(pdfError, null, 2))
+        throw new Error(`PDF文件处理失败: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`)
+      }
+    } else {
+      // 普通图片文件
+      const bytes = await file.arrayBuffer()
+      imageForAnalysis = {
+        bytes,
+        mimeType: file.type,
+        fileName: file.name
+      }
+    }
+
+    // Convert image to base64 for AI analysis
+    const base64 = Buffer.from(imageForAnalysis.bytes).toString("base64")
+    const mimeType = imageForAnalysis.mimeType
+
+    console.log("[DEBUG] Starting material analysis for file:", imageForAnalysis.fileName)
+    console.log("[DEBUG] File size:", imageForAnalysis.bytes.byteLength, "bytes")
     console.log("[DEBUG] MIME type:", mimeType)
 
     // Call OpenRouter API with vision model
@@ -129,31 +419,99 @@ export async function POST(request: NextRequest) {
     // 如果只是分析模式，直接返回分析结果
     if (isAnalysisOnly) {
       console.log("[v0] Analysis-only mode, skipping file upload and database save")
+
+      // 如果是PSD或PDF文件，返回转换后的PNG图片的base64数据
+      let previewImageBase64: string | undefined
+      if ((isPsd || isPdf) && imageForAnalysis) {
+        const base64 = Buffer.from(imageForAnalysis.bytes).toString('base64')
+        previewImageBase64 = `data:${imageForAnalysis.mimeType};base64,${base64}`
+        console.log("[DEBUG] Created preview image base64 for", isPsd ? "PSD" : "PDF", "file")
+      }
+
       return NextResponse.json({
         success: true,
         analysis: analysisResult,
+        previewImage: previewImageBase64, // 返回转换后的图片数据
       })
     }
 
     // Initialize Supabase client
     const supabase = createServerClient()
 
-    // Generate unique filename
-    const fileExtension = file.name.split(".").pop()
-    const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`
+    // 上传原始PSD/PDF文件（如果是PSD或PDF）
+    let originalFileUrl: string | null = null
 
-    console.log("[v0] Uploading file to storage:", uniqueFileName)
+    if (isPsd && originalPsdFile) {
+      const originalFileName = `originals/${Date.now()}-${Math.random().toString(36).substring(2)}.psd`
 
-    // Upload file to Supabase storage
+      console.log("[v0] Uploading original PSD file to storage:", originalFileName)
+
+      const { data: originalUploadData, error: originalUploadError } = await supabase.storage
+        .from("material")
+        .upload(originalFileName, originalPsdFile, {
+          contentType: "application/octet-stream",
+          upsert: false,
+        })
+
+      if (originalUploadError) {
+        console.error("[v0] Original PSD upload error:", originalUploadError)
+        throw new Error(`Failed to upload original PSD: ${originalUploadError.message}`)
+      }
+
+      console.log("[v0] Original PSD uploaded successfully:", originalUploadData.path)
+
+      // Get public URL for the original PSD file
+      const { data: originalUrlData } = supabase.storage.from("material").getPublicUrl(originalFileName)
+      originalFileUrl = originalUrlData.publicUrl
+    } else if (isPdf && originalPdfFile) {
+      const originalFileName = `originals/${Date.now()}-${Math.random().toString(36).substring(2)}.pdf`
+
+      console.log("[v0] Uploading original PDF file to storage:", originalFileName)
+
+      const { data: originalUploadData, error: originalUploadError } = await supabase.storage
+        .from("material")
+        .upload(originalFileName, originalPdfFile, {
+          contentType: "application/pdf",
+          upsert: false,
+        })
+
+      if (originalUploadError) {
+        console.error("[v0] Original PDF upload error:", originalUploadError)
+        throw new Error(`Failed to upload original PDF: ${originalUploadError.message}`)
+      }
+
+      console.log("[v0] Original PDF uploaded successfully:", originalUploadData.path)
+
+      // Get public URL for the original PDF file
+      const { data: originalUrlData } = supabase.storage.from("material").getPublicUrl(originalFileName)
+      originalFileUrl = originalUrlData.publicUrl
+    }
+
+    // Generate unique filename for thumbnail/image based on actual mime type
+    const extFromMime = (mime: string) => mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpg' : (fileExtension || 'bin')
+    const thumbnailExtension = extFromMime(imageForAnalysis.mimeType)
+    const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${thumbnailExtension}`
+
+    console.log("[v0] Uploading thumbnail/image to storage:", uniqueFileName)
+
+    // Upload thumbnail/image to Supabase storage
+    const thumbnailBlob = new Blob([imageForAnalysis.bytes], { type: imageForAnalysis.mimeType })
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("material")
-      .upload(uniqueFileName, file, {
-        contentType: file.type,
+      .upload(uniqueFileName, thumbnailBlob, {
+        contentType: imageForAnalysis.mimeType,
         upsert: false,
       })
 
     if (uploadError) {
       console.error("[v0] Storage upload error:", uploadError)
+      // 如果上传失败，清理已上传的原始PSD文件
+      if (originalFileUrl) {
+        const originalFileName = originalFileUrl.split('/').pop()
+        if (originalFileName) {
+          await supabase.storage.from("material").remove([`originals/${originalFileName}`])
+        }
+      }
       throw new Error(`Failed to upload file: ${uploadError.message}`)
     }
 
@@ -182,6 +540,8 @@ export async function POST(request: NextRequest) {
         tags: userTags ? userTags.split(",").map(tag => tag.trim()).filter(tag => tag) : analysisResult.tags,
         chinese_prompt: userChinesePrompt || analysisResult.chinese_prompt,
         english_prompt: userEnglishPrompt || analysisResult.english_prompt,
+        original_file_url: originalFileUrl, // 保存原始PSD文件URL
+        file_format: fileExtension, // 保存文件格式
       })
       .select()
       .single()
@@ -203,9 +563,35 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[ERROR] Material analysis error:", error)
     console.error("[ERROR] Error stack:", error instanceof Error ? error.stack : 'No stack trace')
+    console.error("[ERROR] Error name:", error instanceof Error ? error.name : 'Unknown')
+    console.error("[ERROR] Error message:", error instanceof Error ? error.message : 'Unknown error')
+
+    // 提供更详细的错误信息
+    let errorMessage = "Failed to analyze material"
+    let errorDetails = "Unknown error"
+
+    if (error instanceof Error) {
+      errorDetails = error.message
+
+      // 根据错误类型提供更具体的错误信息
+      if (error.message.includes('Canvas')) {
+        errorMessage = "Canvas库处理失败"
+        errorDetails = `Canvas处理错误: ${error.message}. 请检查服务器环境是否正确安装了Canvas依赖。`
+      } else if (error.message.includes('PSD')) {
+        errorMessage = "PSD文件处理失败"
+        errorDetails = `PSD解析错误: ${error.message}`
+      } else if (error.message.includes('OpenRouter')) {
+        errorMessage = "AI分析服务失败"
+        errorDetails = `OpenRouter API错误: ${error.message}`
+      }
+    }
 
     return NextResponse.json(
-      { error: "Failed to analyze material", details: error instanceof Error ? error.message : "Unknown error" },
+      {
+        error: errorMessage,
+        details: errorDetails,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 },
     )
   }

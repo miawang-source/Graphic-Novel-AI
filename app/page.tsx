@@ -2457,9 +2457,96 @@ function MaterialLibrarySection() {
                               }
                             }
                           }}
+                          title="下载缩略图"
                         >
                           <Download className="w-3 h-3" />
                         </Button>
+
+                        {/* PSD下载按钮 - 仅当有原始PSD文件时显示 */}
+                        {(material as any).file_format === 'psd' && (material as any).original_file_url && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-purple-500 hover:bg-purple-600 text-white border-purple-600"
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              const originalUrl = (material as any).original_file_url
+                              if (originalUrl) {
+                                try {
+                                  // 获取PSD文件数据
+                                  const response = await fetch(originalUrl)
+                                  const blob = await response.blob()
+
+                                  // 创建下载链接
+                                  const url = window.URL.createObjectURL(blob)
+                                  const link = document.createElement("a")
+                                  link.href = url
+                                  link.download = material.original_filename || `${material.title}.psd`
+                                  document.body.appendChild(link)
+                                  link.click()
+
+                                  // 清理
+                                  document.body.removeChild(link)
+                                  window.URL.revokeObjectURL(url)
+                                } catch (error) {
+                                  console.error("PSD下载失败:", error)
+                                  // 降级到直接链接下载
+                                  const link = document.createElement("a")
+                                  link.href = originalUrl
+                                  link.download = material.original_filename || `${material.title}.psd`
+                                  link.target = "_blank"
+                                  link.click()
+                                }
+                              }
+                            }}
+                            title="下载原始PSD文件"
+                          >
+                            PSD
+                          </Button>
+                        )}
+
+                        {/* PDF下载按钮 - 仅当有原始PDF文件时显示 */}
+                        {(material as any).file_format === 'pdf' && (material as any).original_file_url && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-red-500 hover:bg-red-600 text-white border-red-600"
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              const originalUrl = (material as any).original_file_url
+                              if (originalUrl) {
+                                try {
+                                  // 获取PDF文件数据
+                                  const response = await fetch(originalUrl)
+                                  const blob = await response.blob()
+
+                                  // 创建下载链接
+                                  const url = window.URL.createObjectURL(blob)
+                                  const link = document.createElement("a")
+                                  link.href = url
+                                  link.download = material.original_filename || `${material.title}.pdf`
+                                  document.body.appendChild(link)
+                                  link.click()
+
+                                  // 清理
+                                  document.body.removeChild(link)
+                                  window.URL.revokeObjectURL(url)
+                                } catch (error) {
+                                  console.error("PDF下载失败:", error)
+                                  // 降级到直接链接下载
+                                  const link = document.createElement("a")
+                                  link.href = originalUrl
+                                  link.download = material.original_filename || `${material.title}.pdf`
+                                  link.target = "_blank"
+                                  link.click()
+                                }
+                              }
+                            }}
+                            title="下载原始PDF文件"
+                          >
+                            PDF
+                          </Button>
+                        )}
 
                         <Button
                           size="sm"
@@ -2480,6 +2567,24 @@ function MaterialLibrarySection() {
                       </div>
 
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent h-20" />
+
+                      {/* PSD标识 - 左上角 */}
+                      {(material as any).file_format === 'psd' && (
+                        <div className="absolute top-2 left-2">
+                          <Badge className="bg-purple-500 text-white border-purple-600 text-xs px-2 py-1">
+                            PSD
+                          </Badge>
+                        </div>
+                      )}
+
+                      {/* PDF标识 - 左上角 */}
+                      {(material as any).file_format === 'pdf' && (
+                        <div className="absolute top-2 left-2">
+                          <Badge className="bg-red-500 text-white border-red-600 text-xs px-2 py-1">
+                            PDF
+                          </Badge>
+                        </div>
+                      )}
 
                       <div className="absolute inset-x-0 bottom-0 p-3 space-y-1.5">
                         <p className="text-sm font-medium text-white truncate">
@@ -2552,6 +2657,7 @@ function MaterialUploadSection() {
     englishPrompt: string
     file: File
     previewUrl: string
+    isBase64Preview?: boolean
   } | null>(null)
   const [editableTags, setEditableTags] = useState("")
   const [editableChinesePrompt, setEditableChinesePrompt] = useState("")
@@ -2569,14 +2675,31 @@ function MaterialUploadSection() {
     const file = event.target.files?.[0]
     if (!file) return
 
+    // 检查文件扩展名
+    const fileExtension = file.name.split('.').pop()?.toLowerCase()
+    const isPsd = fileExtension === 'psd'
+    const isPdf = fileExtension === 'pdf'
+
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
-    if (!allowedTypes.includes(file.type)) {
-      alert("请上传支持的图片格式：.jpg, .png, .webp")
+    const psdMimeTypes = [
+      "application/photoshop",
+      "application/x-photoshop",
+      "image/vnd.adobe.photoshop",
+      "image/photoshop"
+    ]
+    const pdfMimeTypes = [
+      "application/pdf"
+    ]
+
+    if (!allowedTypes.includes(file.type) && !isPsd && !isPdf && !psdMimeTypes.includes(file.type) && !pdfMimeTypes.includes(file.type)) {
+      alert("请上传支持的图片格式：.jpg, .png, .webp, .psd, .pdf")
       return
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      alert("文件大小不能超过10MB")
+    // PSD和PDF文件允许更大的文件大小
+    const maxSize = (isPsd || isPdf) ? 500 * 1024 * 1024 : 10 * 1024 * 1024
+    if (file.size > maxSize) {
+      alert(`文件大小不能超过${(isPsd || isPdf) ? '500MB' : '10MB'}`)
       return
     }
 
@@ -2600,7 +2723,10 @@ function MaterialUploadSection() {
       })
 
       if (!response.ok) {
-        throw new Error(`分析失败: ${response.status}`)
+        // 尝试获取详细的错误信息
+        const errorData = await response.json().catch(() => ({}))
+        const errorDetails = errorData.details || `状态码: ${response.status}`
+        throw new Error(`分析失败: ${errorDetails}`)
       }
 
       const data = await response.json()
@@ -2608,8 +2734,10 @@ function MaterialUploadSection() {
 
       if (data.success && data.analysis) {
         // 创建图片预览URL
-        const previewUrl = URL.createObjectURL(file)
+        // 如果后端返回了previewImage（PSD转PNG的base64），使用它；否则使用原始文件
+        const previewUrl = data.previewImage || URL.createObjectURL(file)
         console.log("[DEBUG] Created preview URL:", previewUrl)
+        console.log("[DEBUG] Using backend preview image:", !!data.previewImage)
 
         const analysis = {
           name: file.name,
@@ -2618,12 +2746,14 @@ function MaterialUploadSection() {
           englishPrompt: data.analysis.english_prompt || "",
           file: file, // 保存文件对象，用于后续上传
           previewUrl: previewUrl, // 添加预览URL
+          isBase64Preview: !!data.previewImage, // 标记是否是base64预览
         }
 
         console.log("[DEBUG] Analysis object:", {
           name: analysis.name,
           hasPreviewUrl: !!analysis.previewUrl,
-          previewUrl: analysis.previewUrl
+          previewUrl: analysis.previewUrl.substring(0, 50) + "...",
+          isBase64Preview: analysis.isBase64Preview
         })
 
         setUploadedImage(analysis)
@@ -2691,8 +2821,8 @@ function MaterialUploadSection() {
 
       // 重置状态
       setShowUploadModal(false)
-      // 清理预览URL
-      if (uploadedImage?.previewUrl) {
+      // 清理预览URL（只清理blob URL，不清理base64）
+      if (uploadedImage?.previewUrl && !uploadedImage?.isBase64Preview) {
         URL.revokeObjectURL(uploadedImage.previewUrl)
       }
       setUploadedImage(null)
@@ -2758,7 +2888,18 @@ function MaterialUploadSection() {
               const files = e.dataTransfer.files
               if (files && files.length > 0) {
                 const file = files[0]
-                if (file.type.startsWith('image/')) {
+                const fileExtension = file.name.split('.').pop()?.toLowerCase()
+                const isPsd = fileExtension === 'psd'
+                const isPdf = fileExtension === 'pdf'
+                const psdMimeTypes = [
+                  "application/photoshop",
+                  "application/x-photoshop",
+                  "image/vnd.adobe.photoshop",
+                  "image/photoshop"
+                ]
+                const pdfMimeTypes = ["application/pdf"]
+
+                if (file.type.startsWith('image/') || isPsd || isPdf || psdMimeTypes.includes(file.type) || pdfMimeTypes.includes(file.type)) {
                   // 模拟文件选择事件
                   const event = {
                     target: {
@@ -2772,11 +2913,11 @@ function MaterialUploadSection() {
           >
             <ImageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-lg font-medium mb-2">拖拽图片到此处或点击上传</p>
-            <p className="text-sm text-muted-foreground mb-4">支持 .jpg, .png, .webp 格式</p>
+            <p className="text-sm text-muted-foreground mb-4">支持 .jpg, .png, .webp, .psd, .pdf 格式</p>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp"
+              accept="image/jpeg,image/jpg,image/png,image/webp,.psd,.pdf,application/photoshop,application/x-photoshop,image/vnd.adobe.photoshop,application/pdf"
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -2828,8 +2969,8 @@ function MaterialUploadSection() {
         onOpenChange={(open) => {
           // 上传过程中不允许关闭弹窗
           if (!isUploading) {
-            if (!open && uploadedImage?.previewUrl) {
-              // 弹窗关闭时清理预览URL
+            if (!open && uploadedImage?.previewUrl && !uploadedImage?.isBase64Preview) {
+              // 弹窗关闭时清理预览URL（只清理blob URL，不清理base64）
               URL.revokeObjectURL(uploadedImage.previewUrl)
             }
             setShowUploadModal(open)
