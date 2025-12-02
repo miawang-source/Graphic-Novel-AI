@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient, createStorageClient } from "@/lib/supabase"
+import { createServerClient } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 import { readPsd, initializeCanvas } from 'ag-psd'
 import sharp from 'sharp'
 
@@ -437,7 +438,20 @@ export async function POST(request: NextRequest) {
 
     // Initialize Supabase clients
     const supabase = createServerClient() // 用于数据库操作
-    const storageClient = createStorageClient() // 用于文件上传
+    
+    // 创建专门用于文件上传的客户端（不使用cookies）
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    
+    console.log('[Storage] Using key type:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'service_role' : 'anon')
+    console.log('[Storage] Supabase URL:', supabaseUrl)
+    
+    const storageClient = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      }
+    })
 
     // 上传原始PSD/PDF文件（如果是PSD或PDF）
     let originalFileUrl: string | null = null
