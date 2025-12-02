@@ -26,10 +26,12 @@ export async function processPsdFile(file: File): Promise<{
     const height = psdData.height;
     
     // 检查是否有内置缩略图
-    if (psdData.thumbnail && psdData.thumbnail.data) {
+    // 使用类型断言因为ag-psd的类型定义不完整
+    const psdDataWithThumbnail = psdData as any;
+    if (psdDataWithThumbnail.thumbnail && psdDataWithThumbnail.thumbnail.data) {
       // 使用内置缩略图
       return {
-        thumbnailBlob: new Blob([psdData.thumbnail.data], { type: 'image/jpeg' }),
+        thumbnailBlob: new Blob([psdDataWithThumbnail.thumbnail.data], { type: 'image/jpeg' }),
         width,
         height
       };
