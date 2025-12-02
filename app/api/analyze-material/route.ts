@@ -454,7 +454,12 @@ export async function POST(request: NextRequest) {
         })
 
       if (originalUploadError) {
-        console.error("[v0] Original PSD upload error:", originalUploadError)
+        console.error("[ERROR] ===== Original PSD upload error =====")
+        console.error("[ERROR] Error message:", originalUploadError.message)
+        console.error("[ERROR] Error object:", JSON.stringify(originalUploadError, null, 2))
+        console.error("[ERROR] File name:", originalFileName)
+        console.error("[ERROR] File size:", originalPsdFile.size)
+        console.error("[ERROR] ========================================")
         throw new Error(`Failed to upload original PSD: ${originalUploadError.message}`)
       }
 
@@ -476,7 +481,12 @@ export async function POST(request: NextRequest) {
         })
 
       if (originalUploadError) {
-        console.error("[v0] Original PDF upload error:", originalUploadError)
+        console.error("[ERROR] ===== Original PDF upload error =====")
+        console.error("[ERROR] Error message:", originalUploadError.message)
+        console.error("[ERROR] Error object:", JSON.stringify(originalUploadError, null, 2))
+        console.error("[ERROR] File name:", originalFileName)
+        console.error("[ERROR] File size:", originalPdfFile.size)
+        console.error("[ERROR] ========================================")
         throw new Error(`Failed to upload original PDF: ${originalUploadError.message}`)
       }
 
@@ -504,7 +514,17 @@ export async function POST(request: NextRequest) {
       })
 
     if (uploadError) {
-      console.error("[v0] Storage upload error:", uploadError)
+      console.error("[ERROR] ===== Storage upload error details =====")
+      console.error("[ERROR] Error message:", uploadError.message)
+      console.error("[ERROR] Error name:", uploadError.name)
+      console.error("[ERROR] Status code:", (uploadError as any).statusCode)
+      console.error("[ERROR] Error object:", JSON.stringify(uploadError, null, 2))
+      console.error("[ERROR] File name:", uniqueFileName)
+      console.error("[ERROR] File size:", thumbnailBlob.size)
+      console.error("[ERROR] Content type:", imageForAnalysis.mimeType)
+      console.error("[ERROR] Bucket:", "material")
+      console.error("[ERROR] ==========================================")
+      
       // 如果上传失败，清理已上传的原始PSD文件
       if (originalFileUrl) {
         const originalFileName = originalFileUrl.split('/').pop()

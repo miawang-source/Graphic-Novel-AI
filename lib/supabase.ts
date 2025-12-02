@@ -6,12 +6,24 @@ const supabaseAnonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd5YWZhbGVnaW9qcW56eWZhc3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NjI1NTksImV4cCI6MjA3MzAzODU1OX0.i3bRWO7wlTsmRIhVOLG3bV7CELIOqoFAlJ5wLtS2B9o"
 
+// Service role key用于服务端操作（如文件上传），权限更高
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
 
 export function createServerClient() {
   const cookieStore = cookies()
 
-  return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
+  // 优先使用service role key（用于文件上传等需要更高权限的操作）
+  const key = supabaseServiceKey || supabaseAnonKey
+  
+  if (supabaseServiceKey) {
+    console.log('[Supabase] Using service role key for server operations')
+  } else {
+    console.log('[Supabase] Warning: Using anon key, file uploads may fail. Please set SUPABASE_SERVICE_ROLE_KEY')
+  }
+
+  return createSupabaseServerClient(supabaseUrl, key, {
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value
@@ -67,12 +79,19 @@ export interface Material {
   english_prompt: string
   download_count: number
   created_at: string
+  original_file_url?: string  // 原始PSD文件URL
+  file_format?: string        // 文件格式 (png/jpg/psd等)
+  file_type?: string         // 保持向后兼容
+  original_filename?: string // 原始文件名
 }
 
 export function createServerSupabaseClient() {
   const cookieStore = cookies()
 
-  return createSupabaseServerClient(supabaseUrl, supabaseAnonKey, {
+  // 优先使用service role key
+  const key = supabaseServiceKey || supabaseAnonKey
+
+  return createSupabaseServerClient(supabaseUrl, key, {
     cookies: {
       get(name: string) {
         return cookieStore.get(name)?.value
