@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase"
+import { createServerClient, createStorageClient } from "@/lib/supabase"
 import { readPsd, initializeCanvas } from 'ag-psd'
 import sharp from 'sharp'
 
@@ -435,8 +435,9 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Initialize Supabase client
-    const supabase = createServerClient()
+    // Initialize Supabase clients
+    const supabase = createServerClient() // 用于数据库操作
+    const storageClient = createStorageClient() // 用于文件上传
 
     // 上传原始PSD/PDF文件（如果是PSD或PDF）
     let originalFileUrl: string | null = null
@@ -446,7 +447,7 @@ export async function POST(request: NextRequest) {
 
       console.log("[v0] Uploading original PSD file to storage:", originalFileName)
 
-      const { data: originalUploadData, error: originalUploadError } = await supabase.storage
+      const { data: originalUploadData, error: originalUploadError } = await storageClient.storage
         .from("material")
         .upload(originalFileName, originalPsdFile, {
           contentType: "application/octet-stream",
@@ -466,14 +467,14 @@ export async function POST(request: NextRequest) {
       console.log("[v0] Original PSD uploaded successfully:", originalUploadData.path)
 
       // Get public URL for the original PSD file
-      const { data: originalUrlData } = supabase.storage.from("material").getPublicUrl(originalFileName)
+      const { data: originalUrlData } = storageClient.storage.from("material").getPublicUrl(originalFileName)
       originalFileUrl = originalUrlData.publicUrl
     } else if (isPdf && originalPdfFile) {
       const originalFileName = `originals/${Date.now()}-${Math.random().toString(36).substring(2)}.pdf`
 
       console.log("[v0] Uploading original PDF file to storage:", originalFileName)
 
-      const { data: originalUploadData, error: originalUploadError } = await supabase.storage
+      const { data: originalUploadData, error: originalUploadError } = await storageClient.storage
         .from("material")
         .upload(originalFileName, originalPdfFile, {
           contentType: "application/pdf",
@@ -493,7 +494,7 @@ export async function POST(request: NextRequest) {
       console.log("[v0] Original PDF uploaded successfully:", originalUploadData.path)
 
       // Get public URL for the original PDF file
-      const { data: originalUrlData } = supabase.storage.from("material").getPublicUrl(originalFileName)
+      const { data: originalUrlData } = storageClient.storage.from("material").getPublicUrl(originalFileName)
       originalFileUrl = originalUrlData.publicUrl
     }
 
@@ -506,7 +507,7 @@ export async function POST(request: NextRequest) {
 
     // Upload thumbnail/image to Supabase storage
     const thumbnailBlob = new Blob([imageForAnalysis.bytes], { type: imageForAnalysis.mimeType })
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await storageClient.storage
       .from("material")
       .upload(uniqueFileName, thumbnailBlob, {
         contentType: imageForAnalysis.mimeType,
@@ -529,7 +530,7 @@ export async function POST(request: NextRequest) {
       if (originalFileUrl) {
         const originalFileName = originalFileUrl.split('/').pop()
         if (originalFileName) {
-          await supabase.storage.from("material").remove([`originals/${originalFileName}`])
+          await storageClient.storage.from("material").remove([`originals/${originalFileName}`])
         }
       }
       throw new Error(`Failed to upload file: ${uploadError.message}`)
@@ -538,7 +539,7 @@ export async function POST(request: NextRequest) {
     console.log("[v0] File uploaded successfully:", uploadData.path)
 
     // Get public URL for the uploaded file
-    const { data: urlData } = supabase.storage.from("material").getPublicUrl(uniqueFileName)
+    const { data: urlData } = storageClient.storage.from("material").getPublicUrl(uniqueFileName)
 
     // 确定主分类和细分类
     const characterCategories = ['ancient-male', 'ancient-female', 'modern-male', 'modern-female', 'fantasy']
@@ -569,7 +570,7 @@ export async function POST(request: NextRequest) {
     if (dbError) {
       console.error("[v0] Database save error:", dbError)
       // Clean up uploaded file if database save fails
-      await supabase.storage.from("material").remove([uniqueFileName])
+      await storageClient.storage.from("material").remove([uniqueFileName])
       throw new Error(`Failed to save material data: ${dbError.message}`)
     }
 

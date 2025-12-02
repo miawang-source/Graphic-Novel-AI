@@ -1,4 +1,5 @@
 import { createBrowserClient, createServerClient as createSupabaseServerClient } from "@supabase/ssr"
+import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://gyafalegiojqnzyfasvb.supabase.co"
@@ -10,6 +11,26 @@ const supabaseAnonKey =
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
+
+// 创建专门用于服务端文件上传的客户端（不使用cookies，使用service role key）
+export function createStorageClient() {
+  // 优先使用service role key，如果没有则使用anon key
+  const key = supabaseServiceKey || supabaseAnonKey
+  
+  if (supabaseServiceKey) {
+    console.log('[Supabase Storage] Using service role key')
+  } else {
+    console.log('[Supabase Storage] Warning: Using anon key, uploads may fail without proper policies')
+  }
+  
+  // 直接创建客户端，不使用cookies
+  return createClient(supabaseUrl, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    }
+  })
+}
 
 export function createServerClient() {
   const cookieStore = cookies()
