@@ -575,8 +575,7 @@ export async function POST(request: NextRequest) {
         tags: userTags ? userTags.split(",").map(tag => tag.trim()).filter(tag => tag) : analysisResult.tags,
         chinese_prompt: userChinesePrompt || analysisResult.chinese_prompt,
         english_prompt: userEnglishPrompt || analysisResult.english_prompt,
-        original_file_url: originalFileUrl, // 保存原始PSD文件URL
-        file_format: fileExtension, // 保存文件格式
+        // 注意：original_file_url 和 file_format 字段不存在于materials表
       })
       .select()
       .single()

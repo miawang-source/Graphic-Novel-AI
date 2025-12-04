@@ -2227,6 +2227,14 @@ function MaterialLibrarySection() {
   const [materialToDelete, setMaterialToDelete] = useState<any | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  
+  // 标签编辑相关状态
+  const [showTagEditor, setShowTagEditor] = useState(false)
+  const [editingMaterial, setEditingMaterial] = useState<any | null>(null)
+  const [tagInput1, setTagInput1] = useState("")
+  const [tagInput2, setTagInput2] = useState("")
+  const [tagInput3, setTagInput3] = useState("")
+  const [isSavingTags, setIsSavingTags] = useState(false)
 
   const fetchMaterials = async (subcategory?: string) => {
     setLoading(true)
@@ -2313,6 +2321,79 @@ function MaterialLibrarySection() {
       alert('删除失败，请重试')
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  // 打开标签编辑器
+  const handleOpenTagEditor = (material: any) => {
+    setEditingMaterial(material)
+    // 预填充现有标签
+    const existingTags = material.tags || []
+    setTagInput1(existingTags[0] || "")
+    setTagInput2(existingTags[1] || "")
+    setTagInput3(existingTags[2] || "")
+    setShowTagEditor(true)
+  }
+
+  // 保存标签
+  const handleSaveTags = async () => {
+    if (!editingMaterial) return
+
+    setIsSavingTags(true)
+    try {
+      const tags = [tagInput1, tagInput2, tagInput3].filter(tag => tag.trim())
+      
+      console.log('[TAG-EDITOR] Saving tags:', { materialId: editingMaterial.id, tags })
+      
+      // 直接使用 Supabase 客户端更新
+      const { createClient } = await import("@supabase/supabase-js")
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+
+      const { error } = await supabase
+        .from("materials")
+        .update({ tags })
+        .eq("id", editingMaterial.id)
+
+      if (error) {
+        console.error('[TAG-EDITOR] Update failed:', error)
+        alert(`标签更新失败: ${error.message}`)
+        return
+      }
+
+      // 更新本地状态
+      setMaterials(prev => prev.map(m => 
+        m.id === editingMaterial.id ? { ...m, tags } : m
+      ))
+      setAllMaterials(prev => prev.map(m => 
+        m.id === editingMaterial.id ? { ...m, tags } : m
+      ))
+      
+      // 显示成功提示
+      const toast = document.createElement('div')
+      toast.textContent = '标签更新成功'
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        z-index: 9999;
+        font-size: 14px;
+      `
+      document.body.appendChild(toast)
+      setTimeout(() => document.body.removeChild(toast), 3000)
+      
+      setShowTagEditor(false)
+    } catch (error) {
+      console.error('[TAG-EDITOR] Error updating tags:', error)
+      alert(`标签更新失败: ${error instanceof Error ? error.message : '请重试'}`)
+    } finally {
+      setIsSavingTags(false)
     }
   }
 
@@ -2463,7 +2544,7 @@ function MaterialLibrarySection() {
                         </Button>
 
                         {/* PSD下载按钮 - 仅当有原始PSD文件时显示 */}
-                        {(material as any).file_format === 'psd' && (material as any).original_file_url && (
+                        {material.file_type === 'psd' && (material as any).original_file_url && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -2506,7 +2587,7 @@ function MaterialLibrarySection() {
                         )}
 
                         {/* PDF下载按钮 - 仅当有原始PDF文件时显示 */}
-                        {(material as any).file_format === 'pdf' && (material as any).original_file_url && (
+                        {material.file_type === 'pdf' && (material as any).original_file_url && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -2569,7 +2650,7 @@ function MaterialLibrarySection() {
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent h-20" />
 
                       {/* PSD标识 - 左上角 */}
-                      {(material as any).file_format === 'psd' && (
+                      {material.file_type === 'psd' && (
                         <div className="absolute top-2 left-2">
                           <Badge className="bg-purple-500 text-white border-purple-600 text-xs px-2 py-1">
                             PSD
@@ -2578,7 +2659,7 @@ function MaterialLibrarySection() {
                       )}
 
                       {/* PDF标识 - 左上角 */}
-                      {(material as any).file_format === 'pdf' && (
+                      {material.file_type === 'pdf' && (
                         <div className="absolute top-2 left-2">
                           <Badge className="bg-red-500 text-white border-red-600 text-xs px-2 py-1">
                             PDF
@@ -2590,19 +2671,34 @@ function MaterialLibrarySection() {
                         <p className="text-sm font-medium text-white truncate">
                           {material.title || material.original_filename || "未命名素材"}
                         </p>
-                        {material.tags && material.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {material.tags.slice(0, 3).map((tag: string, index: number) => (
-                              <Badge
-                                key={index}
-                                variant="secondary"
-                                className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 backdrop-blur-sm"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {material.tags && Array.isArray(material.tags) && material.tags.length > 0 && material.tags.some((tag: string) => tag && tag.trim()) && (
+                            <>
+                              {material.tags.filter((tag: string) => tag && tag.trim()).slice(0, 3).map((tag: string, index: number) => (
+                                <Badge
+                                  key={index}
+                                  variant="secondary"
+                                  className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 backdrop-blur-sm"
+                                >
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </>
+                          )}
+                          {/* 添加标签按钮 */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 w-5 p-0 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenTagEditor(material)
+                            }}
+                            title="编辑标签"
+                          >
+                            <span className="text-xs">+</span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2644,6 +2740,65 @@ function MaterialLibrarySection() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 标签编辑对话框 */}
+      <Dialog open={showTagEditor} onOpenChange={setShowTagEditor}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑标签</DialogTitle>
+            <DialogDescription>
+              为素材 &ldquo;{editingMaterial?.title || editingMaterial?.original_filename || '未命名素材'}&rdquo; 添加或修改标签
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">标签 1</label>
+              <Input
+                placeholder="例如：古风"
+                value={tagInput1}
+                onChange={(e) => setTagInput1(e.target.value)}
+                maxLength={20}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">标签 2</label>
+              <Input
+                placeholder="例如：男性"
+                value={tagInput2}
+                onChange={(e) => setTagInput2(e.target.value)}
+                maxLength={20}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">标签 3</label>
+              <Input
+                placeholder="例如：长发"
+                value={tagInput3}
+                onChange={(e) => setTagInput3(e.target.value)}
+                maxLength={20}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowTagEditor(false)
+                  setEditingMaterial(null)
+                }}
+                disabled={isSavingTags}
+              >
+                取消
+              </Button>
+              <Button
+                onClick={handleSaveTags}
+                disabled={isSavingTags}
+              >
+                {isSavingTags ? '保存中...' : '保存'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -2666,6 +2821,32 @@ function MaterialUploadSection() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 批量上传相关状态
+  const [showBatchUpload, setShowBatchUpload] = useState(false)
+  const [batchFiles, setBatchFiles] = useState<File[]>([])
+  const [batchCategory, setBatchCategory] = useState("")
+  const [isBatchUploading, setIsBatchUploading] = useState(false)
+  const [batchUploadStatus, setBatchUploadStatus] = useState<{
+    batchId: string | null
+    stats: {
+      total: number
+      pending: number
+      analyzing: number
+      uploading: number
+      completed: number
+      failed: number
+    }
+    items: Array<{
+      id: string
+      fileName: string
+      status: string
+      progress: number
+      errorMessage?: string
+    }>
+    isCompleted: boolean
+  } | null>(null)
+  const batchFileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImageUpload = () => {
     fileInputRef.current?.click()
@@ -2840,14 +3021,127 @@ function MaterialUploadSection() {
     }
   }
 
+  // 批量上传处理函数
+  const handleBatchFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+
+    setBatchFiles(files)
+    console.log("[BATCH] Selected", files.length, "files")
+  }
+
+  const handleBatchUpload = async () => {
+    if (batchFiles.length === 0) {
+      alert("请先选择文件")
+      return
+    }
+
+    if (!batchCategory) {
+      alert("请先选择分类")
+      return
+    }
+
+    setIsBatchUploading(true)
+    console.log("[BATCH] Starting batch upload:", batchFiles.length, "files, category:", batchCategory)
+
+    try {
+      // 第一步：上传文件到队列
+      const formData = new FormData()
+      batchFiles.forEach(file => {
+        formData.append("files", file)
+      })
+      formData.append("category", batchCategory)
+
+      const uploadResponse = await fetch("/api/batch-upload-materials", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json().catch(() => ({}))
+        throw new Error(errorData.details || `批量上传失败: ${uploadResponse.status}`)
+      }
+
+      const uploadData = await uploadResponse.json()
+      console.log("[BATCH] Files queued:", uploadData)
+
+      const batchId = uploadData.batchId
+
+      // 第二步：触发队列处理
+      const processResponse = await fetch("/api/process-upload-queue", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ batchId }),
+      })
+
+      if (!processResponse.ok) {
+        throw new Error("队列处理启动失败")
+      }
+
+      // 第三步：轮询查询状态
+      const pollStatus = async () => {
+        try {
+          const statusResponse = await fetch(`/api/batch-upload-status/${batchId}`)
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json()
+            setBatchUploadStatus(statusData)
+
+            if (!statusData.isCompleted) {
+              // 继续轮询
+              setTimeout(pollStatus, 2000)
+            } else {
+              console.log("[BATCH] Upload completed:", statusData)
+              setIsBatchUploading(false)
+              alert(`批量上传完成！\n成功: ${statusData.stats.completed}\n失败: ${statusData.stats.failed}`)
+            }
+          }
+        } catch (error) {
+          console.error("[BATCH] Status poll error:", error)
+        }
+      }
+
+      // 开始轮询
+      setTimeout(pollStatus, 2000)
+
+    } catch (error) {
+      console.error("[BATCH] Batch upload error:", error)
+      alert(`批量上传失败: ${error instanceof Error ? error.message : "未知错误"}`)
+      setIsBatchUploading(false)
+    }
+  }
+
+  const handleCancelBatchUpload = () => {
+    setBatchFiles([])
+    setBatchCategory("")
+    setBatchUploadStatus(null)
+    setShowBatchUpload(false)
+    if (batchFileInputRef.current) {
+      batchFileInputRef.current.value = ""
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       <h2 className="text-2xl font-bold">素材上传</h2>
 
       <Card>
         <CardHeader>
-          <CardTitle>上传素材</CardTitle>
-          <CardDescription>上传图片素材，AI将自动提取标签和提示词</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>上传素材</CardTitle>
+              <CardDescription>上传图片素材，AI将自动提取标签和提示词</CardDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowBatchUpload(true)}
+              className="ml-4"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              批量上传
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {/* 分类选择 */}
@@ -3089,6 +3383,195 @@ function MaterialUploadSection() {
                 </>
               ) : (
                 "确认上传"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量上传Dialog */}
+      <Dialog open={showBatchUpload} onOpenChange={(open) => {
+        if (!isBatchUploading) {
+          setShowBatchUpload(open)
+          if (!open) {
+            handleCancelBatchUpload()
+          }
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>批量上传素材</DialogTitle>
+            <DialogDescription>
+              选择多个文件批量上传，所有文件将使用相同的分类，AI会自动分析每个文件
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* 分类选择 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                选择分类 <span className="text-red-500">*</span>
+              </label>
+              <Select value={batchCategory} onValueChange={setBatchCategory} disabled={isBatchUploading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择素材分类" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ancient-male">古代男</SelectItem>
+                  <SelectItem value="ancient-female">古代女</SelectItem>
+                  <SelectItem value="modern-male">现代男</SelectItem>
+                  <SelectItem value="modern-female">现代女</SelectItem>
+                  <SelectItem value="fantasy">架空</SelectItem>
+                  <SelectItem value="ancient-residence">古代住宅</SelectItem>
+                  <SelectItem value="ancient-location">古代场所</SelectItem>
+                  <SelectItem value="modern-residence">现代住宅</SelectItem>
+                  <SelectItem value="modern-location">现代场所</SelectItem>
+                  <SelectItem value="nature">自然</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 文件选择 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">选择文件</label>
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                <input
+                  ref={batchFileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/jpg,image/png,image/webp,.psd,.pdf"
+                  onChange={handleBatchFileSelect}
+                  className="hidden"
+                  disabled={isBatchUploading}
+                />
+                <Button
+                  onClick={() => batchFileInputRef.current?.click()}
+                  disabled={isBatchUploading}
+                  variant="outline"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  选择多个文件
+                </Button>
+                <p className="text-sm text-muted-foreground mt-2">
+                  已选择 {batchFiles.length} 个文件
+                </p>
+              </div>
+            </div>
+
+            {/* 文件列表 */}
+            {batchFiles.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">文件列表</label>
+                <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
+                  <div className="space-y-2">
+                    {batchFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
+                        <span className="text-sm truncate flex-1">{file.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 上传进度 */}
+            {batchUploadStatus && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">上传进度</label>
+                    <span className="text-sm text-muted-foreground">
+                      {batchUploadStatus.stats.completed + batchUploadStatus.stats.failed} / {batchUploadStatus.stats.total}
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{
+                        width: `${((batchUploadStatus.stats.completed + batchUploadStatus.stats.failed) / batchUploadStatus.stats.total) * 100}%`
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* 状态统计 */}
+                <div className="grid grid-cols-5 gap-2 text-center">
+                  <div className="p-2 bg-muted rounded">
+                    <div className="text-xs text-muted-foreground">待处理</div>
+                    <div className="text-lg font-semibold">{batchUploadStatus.stats.pending}</div>
+                  </div>
+                  <div className="p-2 bg-blue-100 rounded">
+                    <div className="text-xs text-blue-600">分析中</div>
+                    <div className="text-lg font-semibold text-blue-600">{batchUploadStatus.stats.analyzing}</div>
+                  </div>
+                  <div className="p-2 bg-yellow-100 rounded">
+                    <div className="text-xs text-yellow-600">上传中</div>
+                    <div className="text-lg font-semibold text-yellow-600">{batchUploadStatus.stats.uploading}</div>
+                  </div>
+                  <div className="p-2 bg-green-100 rounded">
+                    <div className="text-xs text-green-600">已完成</div>
+                    <div className="text-lg font-semibold text-green-600">{batchUploadStatus.stats.completed}</div>
+                  </div>
+                  <div className="p-2 bg-red-100 rounded">
+                    <div className="text-xs text-red-600">失败</div>
+                    <div className="text-lg font-semibold text-red-600">{batchUploadStatus.stats.failed}</div>
+                  </div>
+                </div>
+
+                {/* 文件详细状态 */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">文件状态</label>
+                  <div className="border rounded-lg p-4 max-h-60 overflow-y-auto">
+                    <div className="space-y-2">
+                      {batchUploadStatus.items.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm truncate">{item.fileName}</div>
+                            {item.errorMessage && (
+                              <div className="text-xs text-red-600 truncate">{item.errorMessage}</div>
+                            )}
+                          </div>
+                          <div className="ml-2 flex items-center gap-2">
+                            <span className="text-xs px-2 py-1 rounded bg-background">
+                              {item.status === 'pending' && '待处理'}
+                              {item.status === 'analyzing' && '分析中'}
+                              {item.status === 'uploading' && '上传中'}
+                              {item.status === 'completed' && '✓ 完成'}
+                              {item.status === 'failed' && '✗ 失败'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{item.progress}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelBatchUpload}
+              disabled={isBatchUploading}
+            >
+              {batchUploadStatus?.isCompleted ? '关闭' : '取消'}
+            </Button>
+            <Button
+              onClick={handleBatchUpload}
+              disabled={batchFiles.length === 0 || !batchCategory || isBatchUploading}
+            >
+              {isBatchUploading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  处理中...
+                </>
+              ) : (
+                "开始上传"
               )}
             </Button>
           </DialogFooter>
