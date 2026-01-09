@@ -557,7 +557,21 @@ export async function POST(request: NextRequest) {
 
     // 确定主分类和细分类
     const characterCategories = ['ancient-male', 'ancient-female', 'modern-male', 'modern-female', 'fantasy']
-    const categoryType = characterCategories.includes(category) ? 'character' : 'scene'
+    const sceneCategories = ['ancient-residence', 'ancient-location', 'modern-residence', 'modern-location', 'nature']
+    const fusionCategories = ['project-1', 'project-2', 'project-3', 'project-4', 'project-5']
+    
+    let categoryType: string
+    if (characterCategories.includes(category)) {
+      categoryType = 'character'
+    } else if (sceneCategories.includes(category)) {
+      categoryType = 'scene'
+    } else if (fusionCategories.includes(category)) {
+      categoryType = 'fusion'
+    } else {
+      // 默认为character，但记录警告
+      console.warn("[WARN] Unknown category:", category, "defaulting to 'character'")
+      categoryType = 'character'
+    }
 
     console.log("[DEBUG] Saving material with category:", category, "categoryType:", categoryType)
     console.log("[DEBUG] Analysis result:", analysisResult)

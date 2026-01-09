@@ -6,17 +6,19 @@ export async function POST(request: NextRequest) {
     console.log("[DEBUG] image-generation API called")
 
     const body = await request.json()
-    const { images, prompt } = body
+    const { images, prompt, mode = "image-edit" } = body
 
     console.log("[DEBUG] Received prompt:", prompt)
     console.log("[DEBUG] Received images count:", images?.length || 0)
+    console.log("[DEBUG] Generation mode:", mode)
 
     if (!prompt) {
       return NextResponse.json({ error: "No prompt provided" }, { status: 400 })
     }
 
-    if (!images || images.length === 0) {
-      return NextResponse.json({ error: "No images provided" }, { status: 400 })
+    // 图像编辑模式需要图片，文生图模式不需要
+    if (mode === "image-edit" && (!images || images.length === 0)) {
+      return NextResponse.json({ error: "图像编辑模式需要选择图片" }, { status: 400 })
     }
 
     // 验证API密钥
@@ -26,10 +28,17 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // 构建消息内容 - 明确要求生成图片
-    const enhancedPrompt = `请生成一张图片：${prompt}
+    // 构建消息内容 - 根据模式调整提示词
+    let enhancedPrompt = ""
+    if (mode === "text-to-image") {
+      enhancedPrompt = `请生成一张图片：${prompt}
 
 重要：请直接生成图片，不要返回文字描述。我需要的是实际的图片文件，而不是文字说明。`
+    } else {
+      enhancedPrompt = `请生成一张图片：${prompt}
+
+重要：请直接生成图片，不要返回文字描述。我需要的是实际的图片文件，而不是文字说明。`
+    }
 
     const messageContent: any[] = [
       {
@@ -38,15 +47,17 @@ export async function POST(request: NextRequest) {
       }
     ]
 
-    // 添加图片到消息内容
-    images.forEach((imageData: string) => {
-      messageContent.push({
-        type: "image_url",
-        image_url: {
-          url: imageData
-        }
+    // 只在有图片时添加图片到消息内容
+    if (images && images.length > 0) {
+      images.forEach((imageData: string) => {
+        messageContent.push({
+          type: "image_url",
+          image_url: {
+            url: imageData
+          }
+        })
       })
-    })
+    }
 
     console.log("[DEBUG] Calling OpenRouter API with Gemini 2.5 Flash Image Preview (Nano Banana)...")
 

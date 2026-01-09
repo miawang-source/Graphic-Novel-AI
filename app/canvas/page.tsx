@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -21,7 +22,10 @@ import {
   Trash2,
   ImageIcon,
   Loader2,
-  X
+  X,
+  Sparkles,
+  ArrowLeft,
+  Wand2
 } from "lucide-react"
 import { toast } from "sonner"
 import { Toaster } from "@/components/ui/sonner"
@@ -47,6 +51,8 @@ interface CanvasState {
 }
 
 export default function CanvasPage() {
+  const router = useRouter()
+  
   const [canvasState, setCanvasState] = useState<CanvasState>({
     images: [],
     scale: 1,
@@ -57,6 +63,7 @@ export default function CanvasPage() {
   const [selectedImages, setSelectedImages] = useState<string[]>([])
   const [prompt, setPrompt] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generationMode, setGenerationMode] = useState<"image-edit" | "text-to-image">("image-edit")
   const [showMaterialLibrary, setShowMaterialLibrary] = useState(false)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const [saveImageData, setSaveImageData] = useState<string | null>(null)
@@ -65,6 +72,19 @@ export default function CanvasPage() {
   const [currentImageForSave, setCurrentImageForSave] = useState<CanvasImage | null>(null)
   const [selectedMaterial, setSelectedMaterial] = useState<any>(null)
   const [showMaterialDetail, setShowMaterialDetail] = useState(false)
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false)
+
+  // 提示词模板列表
+  const promptTemplates = [
+    { label: "删除/消除", template: "删除**" },
+    { label: "改变对象", template: "把**改成**" },
+    { label: "改变风格", template: "把**改成**风格" },
+    { label: "改变颜色", template: "把**改成**颜色" },
+    { label: "改变表情", template: "把人物表情变为**" },
+    { label: "更换背景", template: "把图片背景换成**" },
+    { label: "替换主体", template: "将图片里的主体替换成**" },
+    { label: "添加光影", template: "保持画面不变，给画面添加**光影，**方向打上**光" }
+  ]
 
   // 调整大小相关状态
   const [isResizing, setIsResizing] = useState(false)
@@ -606,18 +626,21 @@ export default function CanvasPage() {
       return
     }
     
-    if (selectedImages.length === 0) {
-      toast.error("请选择至少一张图片")
+    // 图像编辑模式需要选择图片
+    if (generationMode === "image-edit" && selectedImages.length === 0) {
+      toast.error("图像编辑模式需要选择至少一张图片")
       return
     }
     
     setIsGenerating(true)
     
     try {
-      // 获取选中图片的数据
-      const selectedImageData = canvasState.images
-        .filter(img => selectedImages.includes(img.id))
-        .map(img => img.src)
+      // 获取选中图片的数据（文生图模式不需要）
+      const selectedImageData = generationMode === "image-edit"
+        ? canvasState.images
+            .filter(img => selectedImages.includes(img.id))
+            .map(img => img.src)
+        : []
       
       const response = await fetch('/api/image-generation', {
         method: 'POST',
@@ -626,7 +649,8 @@ export default function CanvasPage() {
         },
         body: JSON.stringify({
           images: selectedImageData,
-          prompt: prompt.trim()
+          prompt: prompt.trim(),
+          mode: generationMode
         })
       })
       
@@ -676,6 +700,16 @@ export default function CanvasPage() {
       {/* 顶部工具栏 */}
       <div className="bg-white border-b p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/')}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            返回首页
+          </Button>
+          <div className="h-6 w-px bg-gray-300" />
           <h1 className="text-xl font-semibold">AI画布</h1>
           <div className="flex items-center gap-2">
             <Button
@@ -821,51 +855,118 @@ export default function CanvasPage() {
       {/* 提示词输入区域 - 固定在页面底部 */}
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-4xl px-6 z-50">
         <div className="bg-white rounded-xl shadow-xl border border-gray-200 p-6">
+          {/* 模式切换按钮 */}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="flex gap-2">
+              <Button
+                variant={generationMode === "image-edit" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setGenerationMode("image-edit")}
+                className="px-4"
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                图像编辑
+              </Button>
+              <Button
+                variant={generationMode === "text-to-image" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setGenerationMode("text-to-image")
+                  // 切换到文生图模式时清除图片选择
+                  setSelectedImages([])
+                  setCanvasState(prev => ({
+                    ...prev,
+                    images: prev.images.map(img => ({ ...img, selected: false }))
+                  }))
+                }}
+                className="px-4"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                文生图
+              </Button>
+            </div>
+          </div>
+
           {/* 状态标签区域 */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="px-3 py-1">
-                {selectedImages.length > 0 ? `已选中 ${selectedImages.length} 张图片` : '点击图片开始生成'}
-              </Badge>
-              {selectedImages.length === 2 && (
-                <Badge variant="outline" className="text-xs text-blue-600 px-2 py-1">
-                  支持双图生成
-                </Badge>
-              )}
-              {selectedImages.length === 3 && (
-                <Badge variant="outline" className="text-xs text-orange-600 px-2 py-1">
-                  已达到最大选择数量
+              {generationMode === "image-edit" ? (
+                <>
+                  <Badge variant="secondary" className="px-3 py-1">
+                    {selectedImages.length > 0 ? `已选中 ${selectedImages.length} 张图片` : '点击图片开始生成'}
+                  </Badge>
+                  {selectedImages.length === 2 && (
+                    <Badge variant="outline" className="text-xs text-blue-600 px-2 py-1">
+                      支持双图生成
+                    </Badge>
+                  )}
+                  {selectedImages.length === 3 && (
+                    <Badge variant="outline" className="text-xs text-orange-600 px-2 py-1">
+                      已达到最大选择数量
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                <Badge variant="secondary" className="px-3 py-1">
+                  文生图模式：直接输入提示词生成图片
                 </Badge>
               )}
             </div>
             <div className="text-xs text-gray-500">
-              Ctrl+点击选择多张图片 | Ctrl+滚轮缩放画布
+              {generationMode === "image-edit" 
+                ? "Ctrl+点击选择多张图片 | Ctrl+滚轮缩放画布"
+                : "无需选择图片，直接输入文字描述"}
             </div>
           </div>
 
           {/* 输入区域 */}
           <div className="flex gap-4">
             <div className="flex-1">
-              <Textarea
-                placeholder={selectedImages.length === 0
-                  ? "请先选择图片，然后输入提示词进行AI生成..."
-                  : selectedImages.length === 1
-                  ? "输入提示词，基于选中的图片生成新图片..."
-                  : `输入提示词，基于选中的${selectedImages.length}张图片生成新图片...`}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="min-h-[80px] resize-none text-base leading-relaxed"
-                maxLength={500}
-                disabled={selectedImages.length === 0}
-              />
+              <div className="relative">
+                <Textarea
+                  placeholder={
+                    generationMode === "text-to-image"
+                      ? "输入提示词，直接从文字生成图片..."
+                      : selectedImages.length === 0
+                      ? "请先选择图片，然后输入提示词进行AI生成..."
+                      : selectedImages.length === 1
+                      ? "输入提示词，基于选中的图片生成新图片..."
+                      : `输入提示词，基于选中的${selectedImages.length}张图片生成新图片...`
+                  }
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="min-h-[80px] resize-none text-base leading-relaxed pr-12"
+                  maxLength={500}
+                  disabled={generationMode === "image-edit" && selectedImages.length === 0}
+                />
+                {generationMode === "image-edit" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowTemplateDialog(true)}
+                    className="absolute top-2 right-2"
+                    title="使用提示词模板"
+                  >
+                    <Wand2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
               <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
-                <span>支持中文提示词，描述如何结合图片</span>
+                <span>
+                  {generationMode === "text-to-image" 
+                    ? "支持中文提示词，详细描述想要生成的图片"
+                    : "支持中文提示词，描述如何结合图片"}
+                </span>
                 <span>{prompt.length}/500</span>
               </div>
             </div>
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || !prompt.trim() || selectedImages.length === 0}
+              disabled={
+                isGenerating || 
+                !prompt.trim() || 
+                (generationMode === "image-edit" && selectedImages.length === 0)
+              }
               className="self-start px-8 py-3 h-auto"
               size="lg"
             >
@@ -934,6 +1035,34 @@ export default function CanvasPage() {
           setCurrentImageForSave(null)
         }}
       />
+
+      {/* 提示词模板对话框 */}
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>选择提示词模板</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-2 py-4">
+            {promptTemplates.map((template, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                className="justify-start text-left h-auto py-3"
+                onClick={() => {
+                  setPrompt(template.template)
+                  setShowTemplateDialog(false)
+                  toast.success(`已填入模板：${template.label}`)
+                }}
+              >
+                <div className="flex flex-col items-start gap-1">
+                  <span className="font-medium">{template.label}</span>
+                  <span className="text-xs text-gray-500">{template.template}</span>
+                </div>
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 图片详情弹窗 - 暂时注释掉 */}
       {/*
@@ -1074,6 +1203,7 @@ function MaterialLibraryDialog({
     { value: "modern-residence", label: "现代住宅" },
     { value: "modern-location", label: "现代场所" },
     { value: "nature", label: "自然" },
+    { value: "fusion", label: "融合图片" },
   ]
 
   return (
@@ -1222,6 +1352,7 @@ function SaveImageDialog({
   onSave: () => void
 }) {
   const [selectedCategory, setSelectedCategory] = useState("")
+  const [projectName, setProjectName] = useState("")
   const [title, setTitle] = useState("")
   const [tags, setTags] = useState("")
   const [chinesePrompt, setChinesePrompt] = useState("")
@@ -1240,6 +1371,7 @@ function SaveImageDialog({
     { value: "modern-residence", label: "现代住宅" },
     { value: "modern-location", label: "现代场所" },
     { value: "nature", label: "自然" },
+    { value: "fusion", label: "融合图片" },
   ]
 
   const handleAnalyze = async () => {
@@ -1290,6 +1422,12 @@ function SaveImageDialog({
       return
     }
 
+    // 如果是融合图片，检查项目名称
+    if (selectedCategory === "fusion" && !projectName.trim()) {
+      toast.error("请输入项目名称")
+      return
+    }
+
     if (!imageData) return
 
     setIsSaving(true)
@@ -1299,9 +1437,12 @@ function SaveImageDialog({
       const blob = await response.blob()
       const file = new File([blob], `${title}.png`, { type: "image/png" })
 
+      // 确定最终的category值
+      const finalCategory = selectedCategory === "fusion" ? projectName : selectedCategory
+
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("category", selectedCategory)
+      formData.append("category", finalCategory)
       formData.append("tags", tags)
       formData.append("chinese_prompt", chinesePrompt)
       formData.append("english_prompt", englishPrompt)
@@ -1322,6 +1463,7 @@ function SaveImageDialog({
         onSave()
         // 重置表单
         setSelectedCategory("")
+        setProjectName("")
         setTitle("")
         setTags("")
         setChinesePrompt("")
@@ -1377,7 +1519,16 @@ function SaveImageDialog({
           {/* 分类选择 */}
           <div>
             <label className="text-sm font-medium">分类 *</label>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select 
+              value={selectedCategory} 
+              onValueChange={(value) => {
+                setSelectedCategory(value)
+                // 如果选择融合图片，自动设置默认项目名称
+                if (value === "fusion" && !projectName) {
+                  setProjectName("project-1")
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="选择分类" />
               </SelectTrigger>
@@ -1390,6 +1541,28 @@ function SaveImageDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* 项目名称 - 仅当选择融合图片时显示 */}
+          {selectedCategory === "fusion" && (
+            <div>
+              <label className="text-sm font-medium">项目名称 *</label>
+              <Select value={projectName || "project-1"} onValueChange={setProjectName}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择项目" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="project-1">项目一</SelectItem>
+                  <SelectItem value="project-2">项目二</SelectItem>
+                  <SelectItem value="project-3">项目三</SelectItem>
+                  <SelectItem value="project-4">项目四</SelectItem>
+                  <SelectItem value="project-5">项目五</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                用于区分不同的融合图片项目
+              </p>
+            </div>
+          )}
 
           {/* 标题 */}
           <div>
@@ -1555,6 +1728,7 @@ function SaveImageToLibraryDialog({
   onSave: () => void
 }) {
   const [selectedCategory, setSelectedCategory] = useState("")
+  const [projectName, setProjectName] = useState("")
   const [title, setTitle] = useState("")
   const [tags, setTags] = useState("")
   const [chinesePrompt, setChinesePrompt] = useState("")
@@ -1573,6 +1747,7 @@ function SaveImageToLibraryDialog({
     { value: "modern-residence", label: "现代住宅" },
     { value: "modern-location", label: "现代场所" },
     { value: "nature", label: "自然" },
+    { value: "fusion", label: "融合图片" },
   ]
 
   const handleAnalyze = async () => {
@@ -1655,6 +1830,12 @@ function SaveImageToLibraryDialog({
       return
     }
 
+    // 如果是融合图片，检查项目名称
+    if (selectedCategory === "fusion" && !projectName.trim()) {
+      toast.error("请输入项目名称")
+      return
+    }
+
     if (!image) return
 
     setIsSaving(true)
@@ -1696,9 +1877,12 @@ function SaveImageToLibraryDialog({
 
       const file = new File([blob], `${title}.png`, { type: "image/png" })
 
+      // 确定最终的category值
+      const finalCategory = selectedCategory === "fusion" ? projectName : selectedCategory
+
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("category", selectedCategory)
+      formData.append("category", finalCategory)
       formData.append("tags", tags)
       formData.append("chinese_prompt", chinesePrompt)
       formData.append("english_prompt", englishPrompt)
@@ -1787,6 +1971,28 @@ function SaveImageToLibraryDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* 项目名称 - 仅当选择融合图片时显示 */}
+          {selectedCategory === "fusion" && (
+            <div className="space-y-2">
+              <Label htmlFor="projectName">项目名称</Label>
+              <Select value={projectName} onValueChange={setProjectName}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择项目" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="project-1">项目一</SelectItem>
+                  <SelectItem value="project-2">项目二</SelectItem>
+                  <SelectItem value="project-3">项目三</SelectItem>
+                  <SelectItem value="project-4">项目四</SelectItem>
+                  <SelectItem value="project-5">项目五</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                用于区分不同的融合图片项目
+              </p>
+            </div>
+          )}
 
           {/* 标题 */}
           <div className="space-y-2">

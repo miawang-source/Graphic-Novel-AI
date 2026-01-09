@@ -5,8 +5,8 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: '动态漫人设工具',
-  description: '动态漫画人物设定工具',
+  title: '动态漫工具',
+  description: '动态漫画工具',
   generator: 'v0.app',
 }
 

@@ -22,7 +22,8 @@ export async function POST(request: NextRequest) {
     // 验证分类
     const validCategories = [
       'ancient-male', 'ancient-female', 'modern-male', 'modern-female', 'fantasy',
-      'ancient-residence', 'ancient-location', 'modern-residence', 'modern-location', 'nature'
+      'ancient-residence', 'ancient-location', 'modern-residence', 'modern-location', 'nature',
+      'project-1', 'project-2', 'project-3', 'project-4', 'project-5'
     ]
 
     if (!validCategories.includes(category)) {
@@ -31,7 +32,19 @@ export async function POST(request: NextRequest) {
 
     // 确定主分类
     const characterCategories = ['ancient-male', 'ancient-female', 'modern-male', 'modern-female', 'fantasy']
-    const categoryType = characterCategories.includes(category) ? 'character' : 'scene'
+    const sceneCategories = ['ancient-residence', 'ancient-location', 'modern-residence', 'modern-location', 'nature']
+    const fusionCategories = ['project-1', 'project-2', 'project-3', 'project-4', 'project-5']
+    
+    let categoryType: string
+    if (characterCategories.includes(category)) {
+      categoryType = 'character'
+    } else if (sceneCategories.includes(category)) {
+      categoryType = 'scene'
+    } else if (fusionCategories.includes(category)) {
+      categoryType = 'fusion'
+    } else {
+      return NextResponse.json({ error: "Invalid category type" }, { status: 400 })
+    }
 
     const supabase = createServerClient()
 

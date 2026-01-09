@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { I2VGenerationProfessional } from "@/components/I2VGenerationProfessional"
 
 // 添加CSS动画样式
 if (typeof document !== 'undefined') {
@@ -48,6 +49,10 @@ import {
   Palette,
   Trash2,
   Edit,
+  Video,
+  Plus,
+  X,
+  Clock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -930,6 +935,7 @@ export default function ComicProductionTool() {
     { id: "character-prompts", label: "角色提示词", icon: Users },
     { id: "scene-prompts", label: "场景提示词", icon: ImageIcon },
     { id: "canvas-generation", label: "画布生图", icon: Palette },
+    { id: "i2v-generation", label: "图生视频", icon: Video },
     { id: "material-library", label: "素材库", icon: ImageIcon },
     { id: "material-upload", label: "素材上传", icon: Upload },
   ]
@@ -964,6 +970,8 @@ export default function ComicProductionTool() {
         )
       case "canvas-generation":
         return <CanvasGenerationSection />
+      case "i2v-generation":
+        return <I2VGenerationProfessional />
       case "material-library":
         return <MaterialLibrarySection />
       case "material-upload":
@@ -995,9 +1003,9 @@ export default function ComicProductionTool() {
             {!sidebarCollapsed && (
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-primary-foreground" />
+                  <span className="text-lg font-bold text-primary-foreground">M</span>
                 </div>
-                <h1 className="text-lg font-semibold text-foreground">动态漫人设工具</h1>
+                <h1 className="text-lg font-semibold text-foreground">动态漫工具</h1>
               </div>
             )}
             <Button variant="ghost" size="sm" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="p-2">
@@ -2236,10 +2244,22 @@ function MaterialLibrarySection() {
   const [tagInput3, setTagInput3] = useState("")
   const [isSavingTags, setIsSavingTags] = useState(false)
 
-  const fetchMaterials = async (subcategory?: string) => {
+  const fetchMaterials = async (categoryId?: string, isFusionProject?: boolean) => {
     setLoading(true)
     try {
-      const url = subcategory ? `/api/materials?subcategory=${subcategory}` : "/api/materials"
+      let url = "/api/materials"
+      
+      // 判断筛选方式
+      if (categoryId) {
+        if (isFusionProject) {
+          // 融合图片项目：使用 category_type=fusion 和 subcategory 筛选
+          url = `/api/materials?category_type=fusion&subcategory=${categoryId}`
+        } else {
+          // 其他分类使用 subcategory 筛选
+          url = `/api/materials?subcategory=${categoryId}`
+        }
+      }
+      
       console.log("[DEBUG] Fetching materials from:", url)
 
       const response = await fetch(url)
@@ -2252,7 +2272,7 @@ function MaterialLibrarySection() {
       setMaterials(data)
 
       // 如果是获取所有素材（没有筛选），也更新allMaterials用于计数
-      if (!subcategory) {
+      if (!categoryId) {
         setAllMaterials(data)
         console.log("[DEBUG] Updated allMaterials with", data.length, "items")
       }
@@ -2268,12 +2288,12 @@ function MaterialLibrarySection() {
     fetchMaterials()
   }, [])
 
-  const handleCategorySelect = (categoryId: string) => {
+  const handleCategorySelect = (categoryId: string, isFusionProject?: boolean) => {
     const newCategory = selectedCategory === categoryId ? null : categoryId
     setSelectedCategory(newCategory)
 
     if (newCategory) {
-      fetchMaterials(newCategory) // 直接传递细分类ID
+      fetchMaterials(newCategory, isFusionProject) // 传递分类ID和是否为融合项目标识
     } else {
       fetchMaterials() // 不传参数，获取所有素材
     }
@@ -2413,6 +2433,15 @@ function MaterialLibrarySection() {
     { id: "nature", name: "自然", count: allMaterials.filter((m) => m.subcategory === "nature").length },
   ]
 
+  // 融合图片分类 - 使用固定的项目列表
+  const fusionProjects = [
+    { id: "project-1", name: "项目一", count: allMaterials.filter((m) => m.category_type === "fusion" && m.subcategory === "project-1").length },
+    { id: "project-2", name: "项目二", count: allMaterials.filter((m) => m.category_type === "fusion" && m.subcategory === "project-2").length },
+    { id: "project-3", name: "项目三", count: allMaterials.filter((m) => m.category_type === "fusion" && m.subcategory === "project-3").length },
+    { id: "project-4", name: "项目四", count: allMaterials.filter((m) => m.category_type === "fusion" && m.subcategory === "project-4").length },
+    { id: "project-5", name: "项目五", count: allMaterials.filter((m) => m.category_type === "fusion" && m.subcategory === "project-5").length },
+  ]
+
   return (
     <div className="p-6">
       <div className="flex gap-6">
@@ -2454,13 +2483,36 @@ function MaterialLibrarySection() {
               ))}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">融合图片</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {fusionProjects.length > 0 ? (
+                fusionProjects.map((project) => (
+                  <Button
+                    key={project.id}
+                    variant={selectedCategory === project.id ? "secondary" : "ghost"}
+                    className="w-full justify-between text-sm"
+                    onClick={() => handleCategorySelect(project.id, true)}
+                  >
+                    <span>{project.name}</span>
+                    <span className="text-muted-foreground">({project.count})</span>
+                  </Button>
+                ))
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2">暂无项目</p>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="flex-1">
           {selectedCategory && (
             <div className="mb-4">
               <p className="text-sm text-muted-foreground">
-                已选择分类: {[...characterCategories, ...sceneCategories].find((c) => c.id === selectedCategory)?.name}
+                已选择分类: {[...characterCategories, ...sceneCategories, ...fusionProjects].find((c) => c.id === selectedCategory)?.name}
               </p>
             </div>
           )}
@@ -2813,6 +2865,7 @@ function MaterialUploadSection() {
     file: File
     previewUrl: string
     isBase64Preview?: boolean
+    projectName?: string
   } | null>(null)
   const [editableTags, setEditableTags] = useState("")
   const [editableChinesePrompt, setEditableChinesePrompt] = useState("")
@@ -2928,6 +2981,7 @@ function MaterialUploadSection() {
           file: file, // 保存文件对象，用于后续上传
           previewUrl: previewUrl, // 添加预览URL
           isBase64Preview: !!data.previewImage, // 标记是否是base64预览
+          projectName: selectedCategory === "fusion" ? "project-1" : undefined, // 如果是融合图片，设置默认项目名称
         }
 
         console.log("[DEBUG] Analysis object:", {
@@ -2963,15 +3017,27 @@ function MaterialUploadSection() {
       return
     }
 
+    // 如果是融合图片，检查项目名称
+    if (selectedCategory === "fusion" && !uploadedImage.projectName?.trim()) {
+      alert("请输入项目名称")
+      return
+    }
+
     // 防止重复点击
     if (isUploading) {
       return
     }
 
     setIsUploading(true)
+    
+    // 确定最终的category值
+    const finalCategory = selectedCategory === "fusion" ? uploadedImage.projectName : selectedCategory
+    
     console.log("Uploading material with:", {
       name: uploadedImage?.name,
       category: selectedCategory,
+      finalCategory: finalCategory,
+      projectName: uploadedImage.projectName,
       tags: editableTags.split(",").map((tag) => tag.trim()),
       chinesePrompt: editableChinesePrompt,
       englishPrompt: editableEnglishPrompt,
@@ -2980,7 +3046,7 @@ function MaterialUploadSection() {
     try {
       const formData = new FormData()
       formData.append("file", uploadedImage.file)
-      formData.append("category", selectedCategory)
+      formData.append("category", finalCategory!) // 使用项目名称作为category
       formData.append("tags", editableTags)
       formData.append("chinese_prompt", editableChinesePrompt)
       formData.append("english_prompt", editableEnglishPrompt)
@@ -3149,7 +3215,19 @@ function MaterialUploadSection() {
             <label className="text-sm font-medium mb-2 block">
               选择素材分类 <span className="text-red-500">*</span>
             </label>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select 
+              value={selectedCategory} 
+              onValueChange={(value) => {
+                setSelectedCategory(value)
+                // 如果选择融合图片，自动设置默认项目名称
+                if (value === "fusion" && uploadedImage) {
+                  setUploadedImage({
+                    ...uploadedImage,
+                    projectName: uploadedImage.projectName || "project-1"
+                  })
+                }
+              }}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="请选择素材分类" />
               </SelectTrigger>
@@ -3164,9 +3242,44 @@ function MaterialUploadSection() {
                 <SelectItem value="modern-residence">现代住宅</SelectItem>
                 <SelectItem value="modern-location">现代场所</SelectItem>
                 <SelectItem value="nature">自然</SelectItem>
+                <SelectItem value="fusion">融合图片</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* 项目名称输入 - 仅当选择融合图片时显示 */}
+          {selectedCategory === "fusion" && (
+            <div className="mb-6">
+              <label className="text-sm font-medium mb-2 block">
+                项目名称 <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={uploadedImage?.projectName || "project-1"}
+                onValueChange={(value) => {
+                  if (uploadedImage) {
+                    setUploadedImage({
+                      ...uploadedImage,
+                      projectName: value
+                    })
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="请选择项目" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="project-1">项目一</SelectItem>
+                  <SelectItem value="project-2">项目二</SelectItem>
+                  <SelectItem value="project-3">项目三</SelectItem>
+                  <SelectItem value="project-4">项目四</SelectItem>
+                  <SelectItem value="project-5">项目五</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                用于区分不同的融合图片项目
+              </p>
+            </div>
+          )}
 
           <div
             className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors"
@@ -3307,7 +3420,19 @@ function MaterialUploadSection() {
               <label className="text-sm font-medium">
                 分类 <span className="text-red-500">*</span>
               </label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select 
+                value={selectedCategory} 
+                onValueChange={(value) => {
+                  setSelectedCategory(value)
+                  // 如果选择融合图片且当前没有项目名称，自动设置默认值
+                  if (value === "fusion" && uploadedImage && !uploadedImage.projectName) {
+                    setUploadedImage({
+                      ...uploadedImage,
+                      projectName: "project-1"
+                    })
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="请选择素材分类" />
                 </SelectTrigger>
@@ -3322,9 +3447,44 @@ function MaterialUploadSection() {
                   <SelectItem value="modern-residence">现代住宅</SelectItem>
                   <SelectItem value="modern-location">现代场所</SelectItem>
                   <SelectItem value="nature">自然</SelectItem>
+                  <SelectItem value="fusion">融合图片</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 项目名称选择 - 仅当选择融合图片时显示 */}
+            {selectedCategory === "fusion" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  项目名称 <span className="text-red-500">*</span>
+                </label>
+                <Select
+                  value={uploadedImage?.projectName || "project-1"}
+                  onValueChange={(value) => {
+                    if (uploadedImage) {
+                      setUploadedImage({
+                        ...uploadedImage,
+                        projectName: value
+                      })
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="请选择项目" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="project-1">项目一</SelectItem>
+                    <SelectItem value="project-2">项目二</SelectItem>
+                    <SelectItem value="project-3">项目三</SelectItem>
+                    <SelectItem value="project-4">项目四</SelectItem>
+                    <SelectItem value="project-5">项目五</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  用于区分不同的融合图片项目
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">标签 (用逗号分隔)</label>
@@ -3374,7 +3534,11 @@ function MaterialUploadSection() {
             </Button>
             <Button
               onClick={handleConfirmUpload}
-              disabled={!selectedCategory || isUploading}
+              disabled={
+                !selectedCategory || 
+                isUploading || 
+                (selectedCategory === "fusion" && !uploadedImage?.projectName)
+              }
             >
               {isUploading ? (
                 <>
@@ -3427,6 +3591,7 @@ function MaterialUploadSection() {
                   <SelectItem value="modern-residence">现代住宅</SelectItem>
                   <SelectItem value="modern-location">现代场所</SelectItem>
                   <SelectItem value="nature">自然</SelectItem>
+                  <SelectItem value="fusion">融合图片</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -3692,3 +3857,4 @@ function CanvasGenerationSection() {
     </div>
   )
 }
+
